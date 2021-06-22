@@ -13,7 +13,7 @@ class BaseAgent(object):
         self.num_attend_bid += 1
         if is_win:
             self.num_win += 1
-            self.num_click += 1
+            self.num_click += click
             self.list_pctr.append(pctr)
             self.remained_budget -= market_price
             

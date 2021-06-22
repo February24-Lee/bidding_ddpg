@@ -35,13 +35,13 @@ class Actor(nn.Module):
 class Critic(nn.Module):
     def __init__(self,
                 dim_states : int ,
-                dim_actions : int,
+                dim_action : int,
                 hidden1 : int = 16,
                 hidden2 : int = 16,
                 init_w=3e-3) -> None:
         super().__init__()
         self.fc1 = nn.Linear(dim_states, hidden1)
-        self.fc2 = nn.Linear(hidden1 + dim_actions, hidden2)
+        self.fc2 = nn.Linear(hidden1 + dim_action, hidden2)
         self.fc3 = nn.Linear(hidden2, 1)
         
     def init_weights(self, init_w):

@@ -1,5 +1,6 @@
 from .base_agent import BaseAgent
 import pickle
+import numpy as np
 
 class LinearAgent(BaseAgent):
     def __init__(self,
@@ -15,7 +16,6 @@ class LinearAgent(BaseAgent):
         super().__init__()
         
         self.b0                 = 0
-        self.theta_avg          = 0
         self.origin_budget      = budget
         self.remained_budget    = budget
         self.num_win            = 0
@@ -41,6 +41,14 @@ class LinearAgent(BaseAgent):
     @max_bid_price.setter
     def max_bid_price(self, price):
         self._max_bid_price = price 
+
+    @property
+    def b0(self):
+        return self._b0
+    
+    @b0.setter
+    def b0(self, new_bo):
+        self._b0 = new_bo
     
     def loadCampInfo(self, camp_info:dict) -> None:
         """ Camp의 info을 가져와 cpm 및 theta_avg 계산
@@ -59,9 +67,8 @@ class LinearAgent(BaseAgent):
         else:
             theta_avg = self.test_theta_avg
             
-        auction_theta = observed_state['bid']
-        action = min(int(auction_theta * self.b0 / theta_avg), self.max_bid_price)
-        action = min(self.origin_budget, action)
+        action = min(int(observed_state * self.b0 / theta_avg), self.max_bid_price)
+        action = min(self.remained_budget, action)
         return action
 
         

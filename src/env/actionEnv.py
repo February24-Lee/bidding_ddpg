@@ -27,11 +27,11 @@ class ActionEnv(gym.Env):
     def step(self, actions : np.ndarray) -> List:
         agent_num       = len(actions)
         winner_idx      = np.argmax(actions)
-        market_price    = np.argsort(actions)[-1]
+        market_price    = actions[np.argsort(actions)[-1]] # Fist
         winner_click    = self.now_action['click']
         winner_pctr     = self.now_action['pctr']
         
-        reward = np.zeros((agent_num, 1))
+        reward = np.zeros((agent_num))
         reward[winner_idx] = 1
         info = {'market_price' : market_price,
                 'click'        : winner_click,

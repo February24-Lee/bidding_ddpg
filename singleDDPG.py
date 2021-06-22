@@ -1,13 +1,12 @@
 import torch
 from torch.utils.tensorboard import SummaryWriter
+from test_tube import Experiment
 
 import numpy as np
 import pandas as pd
 
 import argparse
-import random
-import pickle
-import math
+import random, pickle, math, os
 from os import path
 from copy import deepcopy
 
@@ -23,11 +22,11 @@ def decision_budget(total_cost  : float = None,
 
 def to_args_format(args : dict,
                     keyword : str):
-    args = {}
+    new_args = {}
     for key in args:
         if keyword in key:
-            args[key[len(key) : ]] = args[key]
-    return args
+            new_args[key[len(keyword) : ]] = args[key]
+    return new_args
 
 def train(args):
     
@@ -35,20 +34,29 @@ def train(args):
     
     with open(path.join(args['data_path'], args['camp'], 'info.txt'), 'rb') as f:
         camp_info = pickle.load(f)
+
+    with open(args['lin_b0_path'], 'rb') as f:
+        b0_file = pickle.load(f)
+        lin_b0 = b0_file['b0']
         
     ### TODO 후에 수정 필요.
-    tb_logger = SummaryWriter('log/')
+    #tb_logger = SummaryWriter('log/')
+    tt_logger = Experiment(name=args['log_name'],
+                        save_dir = 'log/')
+    tt_logger.tag(args)
+    tt_logger.save()
     
     train_budget            = decision_budget(camp_info['cost_train'],
                                             camp_info['imp_train'],
                                             args['env_budget_ratio'],
                                             args['env_episode_max'])
     
-    train_num_auction       = len(camp_info['imp_train'])
+    train_num_auction       = camp_info['imp_train']
     train_epochs            = math.ceil(train_num_auction / args['env_episode_max'])
     train_iteration         = min(train_epochs * train_num_auction, train_num_auction)
     
     train_dataloadr         = IPinyouDataLoader(data_path=args['data_path'],
+                                                market_path=None,
                                                 camp=args['camp'],
                                                 file='train.ctr.txt')
     
@@ -57,47 +65,65 @@ def train(args):
                                         episode_maxlen=args['env_episode_max'])
     
     # --- Agent
-    ddpg_agent              = DDPGAgent(*to_args_format(args, keyword='ddpg_'),
+    ddpg_agent              = DDPGAgent(**to_args_format(args, keyword='ddpg_'),
                                         budget=train_budget,
-                                        tb_logger=tb_logger)
+                                        logger=tt_logger)
+    if args['load_model'] is not None:
+        print('load model')
+        ckpt = torch.load(args['load_model'])
+        ddpg_agent.actor_target.load_state_dict(ckpt['actor_state_dict'])
+        ddpg_agent.critic_target.load_state_dict(ckpt['critic_state_dict'])
+        ddpg_agent.actor_optim.load_state_dict(ckpt['optim_actor_state_dict'])
+        ddpg_agent.critic_optim.load_state_dict(ckpt['optim_critic_state_dict'])
+        ddpg_agent.actor = deepcopy(ddpg_agent.actor_target)
+        ddpg_agent.critic = deepcopy(ddpg_agent.critic_target)               
+    
     linear_agent            = LinearAgent(camp_info=camp_info,
                                         max_bid_price=args['ddpg_max_bid_price'],
                                         budget=train_budget)
+    linear_agent.b0 = lin_b0
     
     # --- Train
     bid = train_env.reset()
     bid_log = {}
     episode = []
+    ddpg_agent.is_training = True
     for step in range(int(train_iteration)):
+
+        if ddpg_agent.remained_budget < 100:
+            _ = 1
         
         if step <= args['warmup'] :
             state0, action = ddpg_agent.random_action(bid['pctr'])
-            action = action.detach().numpy()
         else:
             state0, action = ddpg_agent.action(bid['pctr'])
-        linear_action = linear_action(bid['pctr'])
-        episode.append([action, linear_agent, bid['pctr']])
+        linear_action = linear_agent.action(bid['pctr'])
+        episode.append([action, linear_action, bid['pctr']])
         
-        next_bid, reward, terminal, info = train_env.step(np.concatenate([action, linear_action]))
+        next_bid, reward, terminal, info = train_env.step(np.array([action, linear_action, bid['market_price']]))
         
-        if (reward[0] is not 0) and (action is not 0.):     # ddpg win
+        if (reward[0] == 1) and (action != 0.):     # ddpg win
             ddpg_agent.update_result(is_win = True,
                                     click = info['click'],
-                                    market_price = info['market_price'])
+                                    market_price = info['market_price'],
+                                    pctr=info['pctr'])
             linear_agent.update_result(is_win=False)
-        elif (reward[0] == 0) and (action is not 0.):     # ddpg win
+        elif (reward[1] == 0) and (action != 0.):     # lin win
             ddpg_agent.update_result(is_win = False)
             linear_agent.update_result(is_win=True, 
                                     click = info['click'],
-                                    market_price = info['market_price'])
+                                    market_price = info['market_price'],
+                                    pctr=info['pctr'])
             
+        
         ddpg_agent.fill_memory(state0   = state0,
                             action      = action,
-                            reward      = info['pctr'],
+                            reward      = info['pctr']*reward[0],
+                            #reward      = info['pctr']*reward[0] - info['pctr']*(reward[1]+reward[2]),
                             terminal    = terminal)
         
         if step > args['warmup'] :
-            ddpg_agent.update_policy()
+            ddpg_agent.update_policy(step)
             
         if terminal :
             ddpg_total_click        = ddpg_agent.num_click
@@ -133,8 +159,11 @@ def train(args):
             print('---------------------------')
             ###########
             #TODO 나중에 txt 저장 방식 수정 할 것. soft-coding으로
-            np.savetxt("log/Ep{}_log.txt".format(train_env.episode_idx), np.array(episode), delimiter=",")
-            with open("log/Ep{}_ddpg_summary.pickle".format(train_env.episode_idx), 'wb') as f:
+            temp_df = pd.DataFrame(np.array(episode))
+            if not path.isdir(path.join(tt_logger.save_dir,tt_logger.name, 'version_'.format(tt_logger.version), 'log_history')):
+                os.mkdir(path.join(tt_logger.save_dir, tt_logger.name,'version_'.format(tt_logger.version), 'log_history'))
+            temp_df.to_csv(path.join(tt_logger.save_dir, tt_logger.name,'version_'.format(tt_logger.version),'log_history', "Ep{}_log.txt".format(train_env.episode_idx)), index=False)
+            with open(path.join(tt_logger.save_dir, tt_logger.name,'version_'.format(tt_logger.version),'log_history', "Ep{}_ddpg_summary.pickle".format(train_env.episode_idx)), 'wb') as f:
                 pickle.dump(ddpg_summary, f)
             ###########
             bid_log["Episode : {}".format(train_env.episode_idx)] = np.array(episode)
@@ -145,7 +174,14 @@ def train(args):
             linear_agent.reset()
         else : 
             bid = deepcopy(next_bid)
-        
+    
+    # Save model
+    torch.save({'critic_state_dict'         : ddpg_agent.critic_target.state_dict(),
+                'actor_state_dict'          : ddpg_agent.actor_target.state_dict(),
+                'optim_critic_state_dict'   : ddpg_agent.critic_optim.state_dict(),
+                'optim_actor_state_dict'    : ddpg_agent.actor_optim.state_dict(),
+                }, 
+                path.join(tt_logger.save_dir,  tt_logger.name, 'version_{}'.format(tt_logger.version),  'final_model'))
     
 if __name__ == "__main__":
     
@@ -155,6 +191,7 @@ if __name__ == "__main__":
     parser.add_argument('--camp',                   type=str,       default='2259')
     parser.add_argument('--data-path',              type=str,       default='data/make-ipinyou-data/')
     parser.add_argument('--seed',                   type=int,       default=777)
+    parser.add_argument('--load-model',             type=str,       )
     
     # --- environment
     parser.add_argument('--env-episode-max',        type=int,       default=1000)
@@ -176,12 +213,16 @@ if __name__ == "__main__":
     parser.add_argument('--ddpg-epsilon',           type=int,       default=50000)
     parser.add_argument('--ddpg-max-bid-price',     type=int,       default=300)
     
+    # --- linear agent
+    parser.add_argument('--lin-b0-path',            type=str,       default='data/linear_agent/ipinyou-data/2259/bid-model/lin-bid_1000_0.25_clk_277696.pickle')
+
     # --- train
     parser.add_argument('--warmup',                 type=int,       default=100)
-    
+ 
     # --- logger
     parser.add_argument('--log-path',               type=str,      default='log/')
     parser.add_argument('--tb-log-path',            type=str,      default='log/')
+    parser.add_argument('--log-name',               type=str,      default='base_reward_base')
     
     args = vars(parser.parse_args())
     

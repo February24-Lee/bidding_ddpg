@@ -29,7 +29,7 @@ class DDPGAgent(BaseAgent):
                 epsilon             : float = None,
                 max_bid_price       : int = None,
                 budget              : float = None,
-                tb_logger                   = None) -> None:
+                logger                   = None) -> None:
         super().__init__()
         
         self.actor              = Actor(dim_state = dim_state, 
@@ -40,7 +40,7 @@ class DDPGAgent(BaseAgent):
         self.actor_target       = copy.deepcopy(self.actor)
         self.actor_optim        = optim.Adam(self.actor.parameters(), lr = actor_optim_lr)
         
-        self.critic             = Critic(dim_states=dim_action,
+        self.critic             = Critic(dim_states = dim_state,
                                         dim_action = dim_action,
                                         hidden1=16,
                                         hidden2=16)
@@ -58,7 +58,7 @@ class DDPGAgent(BaseAgent):
         self.discount           = discount
         self.epsilon            = epsilon
         self.epsilon_copy       = epsilon
-        self.is_training        = False
+        self.is_training        = True
         self.max_bid_price      = max_bid_price
         self.origin_budget      = budget
         self.remained_budget    = budget
@@ -74,7 +74,7 @@ class DDPGAgent(BaseAgent):
         self.actor_target       = self.actor_target.to(self.device)
         self.critic             = self.critic.to(self.device)
         self.critic_target      = self.critic_target.to(self.device)
-        self.tb_logger          = tb_logger
+        self.logger             = logger
         
         
     @property
@@ -91,35 +91,37 @@ class DDPGAgent(BaseAgent):
         self.critic             = self.critic.eval()
         self.critic_target      = self.critic_target.eval()
     
-    def update_policy(self) -> None:
+    def update_policy(self, step: int = None) -> None:
         # sample batch
         state0_batch, action_batch, reward_batch, \
             state1_batch, terminal_batch = self.memory.sample_and_split(self.batch_size)
         
-        next_q_values = self.critic_target([torch.from_numpy(state1_batch), self.actor_target(torch.from_numpy(state1_batch))])
-        target_q_values = torch.from_numpy(reward_batch) + \
-            self.discount * torch.from_numpy(terminal_batch.astype(np.float)) * next_q_values
-            
+        next_q_values = self.critic_target([torch.from_numpy(state1_batch).to(self.device),
+                                            self.actor_target(torch.from_numpy(state1_batch).to(self.device))])
+        target_q_values = torch.from_numpy(reward_batch).to(self.device) + \
+            self.discount * torch.from_numpy(terminal_batch.astype(np.float)).to(self.device) * next_q_values
+        
         # --- training critic
         self.critic_optim.zero_grad()
-        hat_q_batch = self.critic([torch.torch.from_numpy(state0_batch), torch.from_numpy(action_batch)])
+        hat_q_batch = self.critic([torch.from_numpy(state0_batch).to(self.device), torch.from_numpy(action_batch).to(self.device)])
         critic_loss = self.criterion(hat_q_batch, target_q_values)
-        if self.tb_logger is not None:
-            self.tb_logger.add_scalar('critic_loss', critic_loss.item())
+        if self.logger is not None:
+            #self.logger.add_scalar('critic_loss', critic_loss.item() ,global_step =step)
+            self.logger.log({'critic_loss' : critic_loss.item()} ,global_step = step)
         critic_loss.backward()
         self.critic_optim.step()
         
         # --- training actor
         self.actor_optim.zero_grad()
-        policy_loss = -self.critic([torch.from_numpy(state0_batch), self.actor(torch.from_numpy(state0_batch))])
+        policy_loss = -self.critic([torch.from_numpy(state0_batch).to(self.device), self.actor(torch.from_numpy(state0_batch).to(self.device))])
         policy_loss = policy_loss.mean()
-        if self.tb_logger is not None:
-            self.tb_logger.add_scalar('policy_loss', policy_loss.item())
+        if self.logger is not None:
+            self.logger.log({'policy_loss' : policy_loss.item()},global_step =step)
         policy_loss.backward()
         self.actor_optim.step()
         
-        soft_update(self.actor_target, self.actor)
-        soft_update(self.critic_target, self.critic)
+        soft_update(self.actor_target, self.actor, self.soft_copy_tau)
+        soft_update(self.critic_target, self.critic, self.soft_copy_tau)
         
     
     def fill_memory(self, state0, action, reward, terminal):
@@ -128,13 +130,14 @@ class DDPGAgent(BaseAgent):
         
         
     def action(self, obs : np.ndarray = None, is_decay_epsilon : bool = True) -> np.ndarray:
-        input_x = np.concatenate([obs, [self.remained_budget]])
-        actor_action = self.actor(torch.from_numpy(input_x).to(self.device)).squeeze(0)
+        input_x = np.array([obs, self.remained_budget], dtype=np.float32)
+        actor_action = self.actor(torch.from_numpy(input_x).to(self.device)).cpu().detach().numpy()
         actor_action += self.is_training * max(self.epsilon, 0) * self.random_process.sample()
         actor_action = np.clip(actor_action, 0., 1.)
         
         actor_action = self.max_bid_price * actor_action
-        actor_action = min(self.remained_budget, actor_action)
+        actor_action = actor_action[0]
+        actor_action = min(self.remained_budget, actor_action).astype(np.float32)
         if is_decay_epsilon:
             self.epsilon = 1/self.epsilon
             
@@ -142,8 +145,8 @@ class DDPGAgent(BaseAgent):
     
     
     def random_action(self, obs):
-        random_action = min(np.random.rand(1) * self.max_bid_price, self.remained_budget)
-        return np.concatenate([obs, self.remained_budget]), random_action
+        random_action = min(np.random.rand(1) * self.max_bid_price, self.remained_budget).astype(np.float32)
+        return np.array([obs, self.remained_budget], dtype=np.float32), random_action[0]
         
             
             

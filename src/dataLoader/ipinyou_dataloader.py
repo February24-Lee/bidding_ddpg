@@ -54,7 +54,7 @@ class IPinyouDataLoader(DataLoaderBase):
             if not self.random_om:
                 self.market_source = open(self.market_path, 'r')
 
-    def get_next(self, mode : int) -> dict:
+    def get_next(self, mode : int = None) -> dict:
         '''
         다음의 데이터 laod
         '''
@@ -66,14 +66,6 @@ class IPinyouDataLoader(DataLoaderBase):
             self.reset()
             raw_bid = next(self.data_source)
 
-        if self.om:
-            if not self.random_om:
-                try:
-                    self.market = next(self.market_source)
-                except StopIteration:
-                    print('market done')
-                    self.reset()
-                    self.market = next(self.market_source)
 
         bid = self._construct_bid(raw_bid, self.market, mode)
         return bid
@@ -99,8 +91,7 @@ class IPinyouDataLoader(DataLoaderBase):
         raw_bid = raw_bid.strip().split()
         
         bid['click'] = float(raw_bid[0])
-        if mode == 1:
-            bid['payprice'] = float(raw_bid[1])
+        bid['market_price'] = float(raw_bid[1])
         bid['pctr'] = float(raw_bid[2])
         try:
             bid['bid'] = list(map(int, raw_bid[3:23]))
