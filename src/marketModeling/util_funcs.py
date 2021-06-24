@@ -6,72 +6,52 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from pandas import DataFrame
 
+MAX_PRICE = 300
 
-def prepare_data(df_replay : DataFrame ,
-                x : DataFrame,
+def prepare_data(x : DataFrame,
+                market_price: DataFrame,
                 sample_size : int,
                 train : bool):
     # To prepare [x, bid, c, market]
-    c = []                  # winning 여부
-    m1 = []                 #
-    m2 = []                 #
-    b = []                  #
+    c   = []                 # winning 여부
+    m1  = []                 #
+    m2  = []                 #
     
-    ddpg_bids = df_replay['ddpg_bid'].values[:sample_size]
-    market_price = df_replay['market'].values[:sample_size]
-    
-    for bid, market in zip(ddpg_bids, market_price):
-        mi1 = [0] * 301         # 이친구는?
-        mi2 = [0] * 301         # 이친구는?
-        bi = [0] * 301          # TODO 무슨의미이냐 이게 
-        
-        bid = int(bid)
-        market = min(int(market), 300) #max market price is 300 ?
-        if train:
-            if bid > market:
-                c.append([0])
-            else:
-                c.append([1])
+    for idx_market_price in range(len(market_price)):
+        mi1    = [0] * 301          
+        mi2    = [0] * 301              
+        market = min(int(market_price[idx_market_price]), MAX_PRICE) #max market price is 300 ?
+        c.append([0])
 
-        bi[:bid+1] = [1] * (bid+1)
-        b.append(bi)
-
-        mi1[market] = 1
-        mi2[:market] = [1] * market
+        mi1[market]     = 1
+        mi2[:market]    = [1] * market
         m1.append(mi1[:])
         m2.append(mi2[:])
 
-    x = np.asarray(x.iloc[:sample_size, :], dtype=np.int)
-    m1 = np.asarray(m1, dtype=np.float32)
-    m2 = np.asarray(m2, dtype=np.float32)
-    b = np.asarray(b, dtype=np.float32)
+    x   = np.asarray(x.iloc[:sample_size, :], dtype=np.int)
+    m1  = np.asarray(m1, dtype=np.float32)
+    m2  = np.asarray(m2, dtype=np.float32)
+    c   = np.asarray(c, dtype=np.float32)
 
     if np.sum(m1) == 0 or np.sum(m2) == 0:
         print('error')
         sys.exit()
 
-    if train:
-        c = np.asarray(c, dtype=np.float32)
-        print(x.shape, c.shape)
-        # --- print the winning prob.
-        win_prob = np.sum(c) / len(c)
-        print('winning prob. in the replay file is %.2f ' % (win_prob))
-    return x, c, b, m1, m2
+    return x, c, m1, m2
 
 
 def prepare_data_multi(df_replay, x, sample_size, train, agent_index):
-
         # To prepare [x, bid, c, market]
-        c = []
+        c   = []
         mi1 = [0] * 301
         mi2 = [0] * 301
-        bi = [0] * 301
-        b = []
-        m1 = []
-        m2 = []
+        bi  = [0] * 301
+        b   = []
+        m1  = []
+        m2  = []
 
         agent = 'ddpg_bid_' + str(agent_index)
-
+        
         ddpg_bids = df_replay[agent].values[:sample_size]
         market_price = df_replay['market'].values[:sample_size]
         # h = [0] * 301
@@ -110,7 +90,6 @@ def prepare_data_multi(df_replay, x, sample_size, train, agent_index):
         return x, c, b, m1, m2
 
 
-
 def prepare_data_test(x, sample_size):
     # To prepare x
     x = np.asarray(x.iloc[:sample_size, :], dtype=np.int)
@@ -137,22 +116,17 @@ def get_onehot_data(x, vocal_size):
 
 
 def loss_full(c_batch,
-            b_batch,
             m1_batch,
             m2_batch,
-            ypred_batch,
-            beta):
+            ypred_batch):
 
     lz = -(1 - c_batch) *torch.add(torch.sum(torch.log(1 - ypred_batch * m2_batch), dim=1),
                                            torch.log(torch.sum(ypred_batch * m1_batch, dim=1)))
     lz = lz.sum()
-    lunc = - torch.sum((1-c_batch) * torch.log(1-torch.prod((1-ypred_batch*b_batch), dim=1)))
-    lcen = - torch.sum(c_batch * torch.sum(torch.log(1-ypred_batch*b_batch), dim=1))
-    
-    lc = lunc + lcen
-    l_full = beta * lz + (1 - beta) * lc
-    l_full = torch.mean(l_full)
+    l_full = torch.mean(lz)
     return l_full
+
+
 
 
 def plot_figures(figs, figure_path, camp, c0, r, file_prefix):

@@ -5,15 +5,9 @@ import torch.nn.functional as F
 from .util_funcs import loss_full
 from .Transformer import Transformer, NeuralNet
 
-import matplotlib
 import os.path as osp
 import os
 import numpy as np
-
-matplotlib.use('Agg')
-sys.path.insert(0, '../')
-
-import master_config as config
 
 
 torch.manual_seed(config.seed)
@@ -41,88 +35,89 @@ class opponent(object):
                 agent_index,
                 use_cuda,
                 op):
+        self.alpha          = alpha
+        self.beta           = beta
 
-        self.alpha = alpha
-        self.beta = beta
-
-        self.num_outputs = num_outputs
-        self.h1 = h1
-        self.h2 = h2
-        self.epochs = epochs
-        self.model_path = model_path
-        self.camp = camp
-        self.sample_size = sample_size
+        self.num_outputs    = num_outputs
+        self.h1             = h1
+        self.h2             = h2
+        self.epochs         = epochs
+        self.model_path     = model_path
+        self.camp           = camp
+        self.sample_size    = sample_size
         
-        self.vocal_size = vocal_size
-        self.num_features = num_features
-        self.emb_dropout = emb_dropout
-        self.lin_dropout = lin_dropout
-
-
-        # Initialize model
-        self.op = op
+        self.vocal_size     = vocal_size
+        self.num_features   = num_features
+        self.emb_dropout    = emb_dropout
+        self.lin_dropout    = lin_dropout
+        
+        self.c0             = c0
+        self.reward         = reward
+        self.agent_num      = agent_num
+        self.agent_index    = agent_index
+        self.use_cuda       = use_cuda
+        self.op             = op
+        self.use_cuda       = use_cuda
+        
         if self.op == 'ffn':
-            self.model = NeuralNet(self.vocal_size, self.num_features, self.num_outputs, self.h1, self.h2, self.emb_dropout,
-                                   self.lin_dropout)
+            self.model = NeuralNet(self.vocal_size, 
+                                self.num_features,
+                                self.num_outputs, 
+                                self.h1,
+                                self.h2, 
+                                self.emb_dropout,
+                                self.lin_dropout)
         else:
             #TODO Hard Coding?
-            self.model = Transformer(vocal_size, num_features, num_outputs, 16, 0.1, 64, 1, 2, use_cuda)
-
-        self.use_cuda = use_cuda
+            self.model = Transformer(vocal_size     = vocal_size,
+                                    num_features    = num_features,
+                                    num_outputs     = num_outputs,
+                                    model_dim       = 16,
+                                    drop_prob       = 0.1,
+                                    point_wise_dim  = 64,
+                                    num_sublayer    = 1,
+                                    num_head        = 2,
+                                    is_cuda         = use_cuda)
         if use_cuda:
             self.model.cuda()
-
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=alpha)
-
         self.best_model_index = 0
 
-        self.c0 = c0
-        self.reward = reward
-        self.agent_num = agent_num
-        self.agent_index = agent_index
-
-        self.use_cuda = use_cuda
-
     def train(self, training_generator, val_generator, file_prefix, camp):
-        train_loss = []
-        iter_train_loss = []
-        val_loss = []
-        val_anlp = []
-        counter = 0
-        best_score = 1e10
-        
-        save_path = self.model_path
+        train_loss          = []
+        iter_train_loss     = []
+        val_loss            = []
+        val_anlp            = []
+        counter             = 0
+        best_score          = 1e10    
+        best_score_val      = 1e10
+        save_path           = self.model_path
         if not osp.exists(save_path):
                 os.makedirs(save_path)
-                
         
         for epoch in range(self.epochs):
             print('start epoch %d' % epoch)
-            # --- Training 
             self.model.train(True)
             running_loss = 0.0
             n_batch = 0
-            
-            for x_batch, c_batch,  b_batch,  m1_batch, m2_batch in training_generator:
+            for x_batch, c_batch,  m1_batch, m2_batch in training_generator:
                 n_batch += 1
                 
                 if self.use_cuda:
-                    x_batch, c_batch, b_batch, m1_batch, m2_batch = Variable(x_batch.cuda()), \
-                                                                    Variable(c_batch.cuda()), \
-                                                                    Variable(b_batch.cuda()), \
-                                                                    Variable(m1_batch.cuda()), \
-                                                                    Variable(m2_batch.cuda())
+                    x_batch, c_batch, m1_batch, m2_batch = Variable(x_batch.cuda()), \
+                                                            Variable(c_batch.cuda()), \
+                                                            Variable(m1_batch.cuda()), \
+                                                            Variable(m2_batch.cuda())
                     x_batch = x_batch.type(torch.cuda.LongTensor)
 
                 else:
-                    x_batch, c_batch, b_batch,  m1_batch, m2_batch = Variable(x_batch), Variable(c_batch), \
-                                                            Variable(b_batch), Variable(m1_batch), \
-                                                            Variable(m2_batch)
+                    x_batch, c_batch, m1_batch, m2_batch = Variable(x_batch), Variable(c_batch), \
+                                                        Variable(m1_batch), Variable(m2_batch)
                     x_batch = x_batch.type(torch.LongTensor)
 
                 self.optimizer.zero_grad()
                 ypred_batch = self.model(x_batch)
-                loss = loss_full(c_batch, b_batch, m1_batch, m2_batch, ypred_batch, self.beta)
+                loss = loss_full(c_batch, m1_batch, m2_batch, ypred_batch)
                 loss.backward()
                 self.optimizer.step()
                 running_loss += loss.item()
@@ -144,29 +139,28 @@ class opponent(object):
             if best_score > total_loss:
                 torch.save(self.model.state_dict(), save_path + self.camp + '_train_sample' + str(self.sample_size)
                         + 'epoch_' + str(epoch) + 'lr_' + str(self.alpha) + file_prefix + '.pt')    
+                best_score = total_loss
 
-            for x_batch, c_batch,  b_batch,  m1_batch, m2_batch in val_generator:
+            for x_batch, c_batch,  m1_batch, m2_batch in val_generator:
                 batch_size = x_batch.shape[0]
                 n_batch += 1
 
                 if self.use_cuda:
-                    x_batch, c_batch, b_batch, m1_batch, m2_batch = Variable(x_batch.cuda()), \
+                    x_batch, c_batch, m1_batch, m2_batch = Variable(x_batch.cuda()), \
                                                                     Variable(c_batch.cuda()), \
-                                                                    Variable(b_batch.cuda()), \
                                                                     Variable(m1_batch.cuda()), \
                                                                     Variable(m2_batch.cuda())
                     x_batch = x_batch.type(torch.cuda.LongTensor)
 
                 else:
-                    x_batch, c_batch, b_batch, m1_batch, m2_batch = Variable(x_batch), \
-                                                                    Variable(c_batch), \
-                                                                    Variable(b_batch), \
-                                                                    Variable(m1_batch), \
-                                                                    Variable(m2_batch)
+                    x_batch, c_batch, m1_batch, m2_batch = Variable(x_batch), \
+                                                            Variable(c_batch), \
+                                                            Variable(m1_batch), \
+                                                            Variable(m2_batch)
                     x_batch = x_batch.type(torch.LongTensor)
 
                 ypred_valbatch = self.model(x_batch)
-                loss = loss_full(c_batch, b_batch, m1_batch, m2_batch, ypred_valbatch, self.beta)
+                loss = loss_full(c_batch, m1_batch, m2_batch, ypred_valbatch)
                 running_loss += loss.item()
 
                 hz = torch.sum(ypred_valbatch * m1_batch, dim=1)
@@ -177,14 +171,16 @@ class opponent(object):
                 hzp_list.append(torch.mean(hzp).item())
                 anlp += score.item() 
 
+            temp_val_loss = running_loss / n_batch
             val_anlp.append(anlp / n_batch)
-            val_loss.append(running_loss / n_batch)
+            val_loss.append(temp_val_loss)
             print('validation anlp : {}'.format(val_anlp[-1]))
             
             # TODO 일단 빠르게 진행해보고 추후 모델 저장여부 결정.
-            if best_score > total_loss:
-                torch.save(self.model.state_dict(), save_path + self.camp + '_train_sample' + str(self.sample_size)
+            if best_score_val > temp_val_loss:
+                torch.save(self.model.state_dict(), save_path + self.camp + '_val_sample' + str(self.sample_size)
                         + 'epoch_' + str(epoch) + 'lr_' + str(self.alpha) + file_prefix + '.pt')    
+                best_score_val = temp_val_loss
         
         return train_loss, val_loss, val_anlp
 
