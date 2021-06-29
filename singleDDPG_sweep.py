@@ -9,6 +9,7 @@ import pandas as pd
 import argparse
 import random, pickle, math, os
 from os import path
+import pathlib
 from copy import deepcopy
 
 from src.agent import DDPGAgent, LinearAgent
@@ -24,7 +25,7 @@ def decision_budget(total_cost  : float = None,
 def to_args_format(args : dict,
                     keyword : str):
     new_args = {}
-    for key in args:
+    for key in args.keys():
         if keyword in key:
             new_args[key[len(keyword) : ]] = args[key]
     return new_args
@@ -89,7 +90,7 @@ def train(args):
     bid_log = {}
     episode = []
     ddpg_agent.is_training = True
-    for step in range(int(train_iteration)):
+    for step in range(int(train_iteration)*args['epoch']):
 
         if ddpg_agent.remained_budget < 100:
             _ = 1
@@ -115,12 +116,17 @@ def train(args):
                                     click = info['click'],
                                     market_price = info['market_price'],
                                     pctr=info['pctr'])
-            
         
+        if args['env_reward_style'] == 'base':
+            _reward = info['pctr']*reward[0]
+        elif args['env_reward_style'] == 'minus':
+            _reward = info['pctr']*reward[0] - info['pctr']*(reward[1]+reward[2])
+        else:
+            raise ValueError
+
         ddpg_agent.fill_memory(state0   = state0,
                             action      = action,
-                            reward      = info['pctr']*reward[0],
-                            #reward      = info['pctr']*reward[0] - info['pctr']*(reward[1]+reward[2]),
+                            reward      = _reward,
                             terminal    = terminal)
         
         if step > args['warmup'] :
@@ -161,10 +167,10 @@ def train(args):
             ###########
             #TODO 나중에 txt 저장 방식 수정 할 것. soft-coding으로
             temp_df = pd.DataFrame(np.array(episode))
-            if not path.isdir(path.join(tt_logger.save_dir,tt_logger.name, 'version_'.format(tt_logger.version), 'log_history')):
-                os.mkdir(path.join(tt_logger.save_dir, tt_logger.name,'version_'.format(tt_logger.version), 'log_history'))
-            temp_df.to_csv(path.join(tt_logger.save_dir, tt_logger.name,'version_'.format(tt_logger.version),'log_history', "Ep{}_log.txt".format(train_env.episode_idx)), index=False)
-            with open(path.join(tt_logger.save_dir, tt_logger.name,'version_'.format(tt_logger.version),'log_history', "Ep{}_ddpg_summary.pickle".format(train_env.episode_idx)), 'wb') as f:
+            if not path.isdir(path.join(tt_logger.save_dir,tt_logger.name, 'version_{}'.format(tt_logger.version), 'log_history')):
+                pathlib.Path(path.join(tt_logger.save_dir, tt_logger.name,'version_{}'.format(tt_logger.version), 'log_history')).mkdir(exist_ok=True)
+            temp_df.to_csv(path.join(tt_logger.save_dir, tt_logger.name,'version_{}'.format(tt_logger.version),'log_history', "Ep{}_log.txt".format(train_env.episode_idx)), index=False)
+            with open(path.join(tt_logger.save_dir, tt_logger.name,'version_{}'.format(tt_logger.version),'log_history', "Ep{}_ddpg_summary.pickle".format(train_env.episode_idx)), 'wb') as f:
                 pickle.dump(ddpg_summary, f)
             ###########
             bid_log["Episode : {}".format(train_env.episode_idx)] = np.array(episode)
@@ -185,8 +191,6 @@ def train(args):
                 path.join(tt_logger.save_dir,  tt_logger.name, 'version_{}'.format(tt_logger.version),  'final_model'))
     
 if __name__ == "__main__":
-    wandb.init()
-    
     parser = argparse.ArgumentParser()
     
     # --- auction path
@@ -194,11 +198,13 @@ if __name__ == "__main__":
     parser.add_argument('--data-path',              type=str,       default='data/make-ipinyou-data/')
     parser.add_argument('--seed',                   type=int,       default=777)
     parser.add_argument('--load-model',             type=str,       )
+    parser.add_argument('--epoch',                  type=str,       default=7)
     
     # --- environment
     parser.add_argument('--env-episode-max',        type=int,       default=1000)
     parser.add_argument('--env-budget-ratio',       type=float,     default=0.25)
-    
+    parser.add_argument('--env_reward_style',       type=str,       default='base')
+
     # --- DDPG 
     parser.add_argument('--ddpg-dim-state',         type=int,       default=2)
     parser.add_argument('--ddpg-dim-action',        type=int,       default=1)
@@ -208,12 +214,16 @@ if __name__ == "__main__":
     parser.add_argument('--ddpg-ou-mu',             type=float,     default=0.)
     parser.add_argument('--ddpg-ou-sigma',          type=float,     default=0.2)
     parser.add_argument('--ddpg-memory-size',       type=int,       default=1000)
-    parser.add_argument('--ddpg-window-length',     type=int,       default=1)
+    parser.add_argument('--ddpg-window_length',     type=int,       default=1)
     parser.add_argument('--ddpg-batch-size',        type=int,       default=64)
     parser.add_argument('--ddpg-soft-copy-tau',     type=float,     default=0.001)
     parser.add_argument('--ddpg-discount',          type=float,     default=0.99)
     parser.add_argument('--ddpg-epsilon',           type=int,       default=50000)
     parser.add_argument('--ddpg-max-bid-price',     type=int,       default=300)
+    parser.add_argument('--ddpg-num_actor_layer',   type=int,       default=4)
+    parser.add_argument('--ddpg-dim_actor_layer',   type=int,       default=16)
+    parser.add_argument('--ddpg-num_critic_layer',  type=int,       default=4)
+    parser.add_argument('--ddpg-dim_critic_layer',  type=int,       default=16)
     
     # --- linear agent
     parser.add_argument('--lin-b0-path',            type=str,       default='data/linear_agent/ipinyou-data/2259/bid-model/lin-bid_1000_0.25_clk_277696.pickle')
@@ -228,9 +238,12 @@ if __name__ == "__main__":
     
     args = vars(parser.parse_args())
     
-    torch.manual_seed(args['seed'])
-    np.random.seed(args['seed'])
-    random.seed(args['seed'])
+    wandb.init(config=args)
+    wandb_args = wandb.config
+
+    torch.manual_seed(wandb_args['seed'])
+    np.random.seed(wandb_args['seed'])
+    random.seed(wandb_args['seed'])
     
-    train(args)
+    train(wandb_args)
     

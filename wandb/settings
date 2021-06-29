@@ -1,0 +1,5 @@
+[default]
+entity = dhlee0224
+project = DSAIL_SR_RL
+base_url = https://api.wandb.ai
+

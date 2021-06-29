@@ -13,13 +13,17 @@ import os.path as osp
 import os
 import wandb
 
-
 def main(args):
+
+    #args['alpha'] = wandb_args['alpha']
+    #args['model_dim'] = wandb_args['model_dim']
+    #args['drop_prob'] = wandb_args['drop_prob']
+    #args['point_wise_dim'] = wandb_args['point_wise_dim']
+    #args['num_sublayer'] = wandb_args['num_sublayer']
+    #args['num_head'] = wandb_args['num_head']
+
     camp        = args['camp']
     agent_num   = int(args['agent_num'])
-    noise       = args['noise']
-    q_type      = args['q_func']
-    seed        = int(args['seed'])
     np.random.seed(seed=int(args['seed']))
 
     index_file      = args['data_path'] + camp + '/' + args['index_file']
@@ -28,8 +32,9 @@ def main(args):
     c0              = str(args['budget'])
     r               = int(args['reward'])
 
-    file_prefix = '_c0_{}_r_{}_q_{}_a_{}_s_{}_n_{}_comp_{}'\
-        .format(c0, r, q_type, agent_num, seed, noise, 1)
+    file_prefix = '_lr_{}_dim_{}_drop_{}_pw_dim_{}_num_sub_{}_num_head_{}'\
+        .format(args['alpha'], args['model_dim'], args['drop_prob'], args['point_wise_dim'],
+                args['num_sublayer'], args['num_head'] )
 
     if args['train']:
         infile          = args['data_path'] + camp + '/' + args['train_file']
@@ -61,7 +66,8 @@ def main(args):
         op1 = opponent(args['alpha'], args['beta'], args['epochs'], args['max_market'], args['h1'],
                        args['h2'], vocal_size, model_path, camp, args['sample_size'], num_features,
                        args['emb_dropout'], args['lin_dropout'], c0, r, agent_num, args['agent_index'],
-                       torch.cuda.is_available(), args['op'])
+                       args['model_dim'], args['drop_prob'], args['point_wise_dim'], args['num_sublayer'],
+                       args['num_head'],torch.cuda.is_available(), args['op'])
 
         # load training data as tensors
         trainingdata = logData(x_train, c_train, m1_train, m2_train)
@@ -148,7 +154,6 @@ if __name__ == '__main__':
     parser.add_argument('--epochs',         help='number of epochs',                        default=100)
     parser.add_argument('--test-batchsize', help='test batch size',                         default=128)
     # Initialize opponent training parameters
-    parser.add_argument('--alpha',          help='learning rate',                               default=1e-5)
     parser.add_argument('--beta', help='parameter to balance the censored and uncensored loss', default=0.25)
     parser.add_argument('--max-market',     help='maximum market price',                        default=301)
     parser.add_argument('--h1',             help='# of hidden units in the 1st hidden layer',   default=100)
@@ -168,7 +173,16 @@ if __name__ == '__main__':
     parser.add_argument('--seed',           help='random seed',                 default=0)
     parser.add_argument('--q-func',         help='indi, concat',                default='concat')
     parser.add_argument('--op',             help='ffn, tf',                     default='ffn')
+    #args = vars(parser.parse_args())
+
+    parser.add_argument('--model_dim',          default= 16 )
+    parser.add_argument('--alpha',              help='learning rate',                               default=1e-5)
+    parser.add_argument('--drop_prob',          default= 0.1)
+    parser.add_argument('--point_wise-dim',     default= 32)
+    parser.add_argument('--num_sublayer',       default= 1)
+    parser.add_argument('--num_head',           default= 2)
+
     args = vars(parser.parse_args())
-    
-    pp.pprint(args)
-    main(args)
+    wandb.init(config=args)
+    wandb_args = wandb.config
+    main(wandb_args)

@@ -4,6 +4,7 @@ import torch.nn as nn
 
 import copy
 import numpy as np
+import wandb
 
 from ..base_agent import BaseAgent
 from .model import Critic, Actor
@@ -21,29 +22,33 @@ class DDPGAgent(BaseAgent):
                 ou_theta            : float = None,
                 ou_mu               : float = None,
                 ou_sigma            : float = None,
-                memory_size         : int = None,
-                window_length       : int = 1,
-                batch_size          : int = 32,
+                memory_size         : int   = None,
+                window_length       : int   = 1,
+                batch_size          : int   = 32,
                 soft_copy_tau       : float = None,
                 discount            : float = None,
                 epsilon             : float = None,
-                max_bid_price       : int = None,
+                max_bid_price       : int   = None,
                 budget              : float = None,
-                logger                   = None) -> None:
+                logger                      = None,
+                num_actor_layer     : int   = None,
+                dim_actor_layer     : int   = None,
+                num_critic_layer    : int   = None,
+                dim_critic_layer    : int   = None) -> None:
         super().__init__()
         
-        self.actor              = Actor(dim_state = dim_state, 
-                                        dim_action = dim_action,
-                                        hidden1=16,
-                                        hidden2=16)
+        self.actor              = Actor(dim_state   = dim_state, 
+                                        dim_action  = dim_action,
+                                        num_layer   = num_actor_layer,
+                                        dim_layer   = dim_actor_layer)
         
         self.actor_target       = copy.deepcopy(self.actor)
         self.actor_optim        = optim.Adam(self.actor.parameters(), lr = actor_optim_lr)
         
-        self.critic             = Critic(dim_states = dim_state,
-                                        dim_action = dim_action,
-                                        hidden1=16,
-                                        hidden2=16)
+        self.critic             = Critic(dim_states     = dim_state,
+                                        dim_action      = dim_action,
+                                        num_layer       = num_critic_layer,
+                                        dim_layer       = dim_critic_layer)
         self.critic_target      = copy.deepcopy(self.critic)
         self.critic_optim       = optim.Adam(self.critic.parameters(), lr = critic_optim_lr)
         self.random_process     = OrnsteinUhlenbeckProcess(size=dim_action,
@@ -105,6 +110,8 @@ class DDPGAgent(BaseAgent):
         self.critic_optim.zero_grad()
         hat_q_batch = self.critic([torch.from_numpy(state0_batch).to(self.device), torch.from_numpy(action_batch).to(self.device)])
         critic_loss = self.criterion(hat_q_batch, target_q_values)
+        # --- log 
+        wandb.log({'critic_loss' : critic_loss.item(), 'step':step})
         if self.logger is not None:
             #self.logger.add_scalar('critic_loss', critic_loss.item() ,global_step =step)
             self.logger.log({'critic_loss' : critic_loss.item()} ,global_step = step)
@@ -115,6 +122,7 @@ class DDPGAgent(BaseAgent):
         self.actor_optim.zero_grad()
         policy_loss = -self.critic([torch.from_numpy(state0_batch).to(self.device), self.actor(torch.from_numpy(state0_batch).to(self.device))])
         policy_loss = policy_loss.mean()
+        wandb.log({'policy_loss' : policy_loss.item(), 'step':step})
         if self.logger is not None:
             self.logger.log({'policy_loss' : policy_loss.item()},global_step =step)
         policy_loss.backward()

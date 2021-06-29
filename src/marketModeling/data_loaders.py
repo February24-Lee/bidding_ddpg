@@ -1,10 +1,9 @@
 from torch.utils import data
 
 class logData(data.Dataset):
-    def __init__(self, array, c,  b,  m1, m2):
+    def __init__(self, array, c,  m1, m2):
         self.array  = array
         self.c      = c
-        self.b      = b
         self.m1     = m1
         self.m2     = m2
 
@@ -13,7 +12,7 @@ class logData(data.Dataset):
         return self.array.shape[0]
 
     def __getitem__(self, i):
-        return self.array[i, :], self.c[i, :], self.b[i, :], self.m1[i, :], self.m2[i, :]
+        return self.array[i, :], self.c[i, :], self.m1[i, :], self.m2[i, :]
 
 
 class logData_test(data.Dataset):

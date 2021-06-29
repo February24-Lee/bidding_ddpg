@@ -1,0 +1,54 @@
+program: singleDDPG_sweep.py
+method: random
+metric:
+  name: policy_loss
+  goal: minimize
+parameters:
+  ddpg-num_actor_layer: 
+    distribution: categorical
+    values:
+      - 1
+      - 2
+      - 4
+      - 8
+  ddpg-dim_actor_layer: 
+    distribution: categorical
+    values:
+      - 8
+      - 16
+      - 32
+      - 64
+  ddpg-num_critic_layer: 
+    distribution: categorical
+    values:
+      - 1
+      - 2
+      - 3
+      - 4
+  ddpg-dim_critic_layer: 
+    distribution: categorical
+    values:
+      - 8
+      - 16
+      - 32
+      - 64
+  seed: 
+    distribution: categorical
+    values:
+      - 444
+      - 555
+      - 666
+      - 777
+  ddpg-window_length: 
+    distribution: categorical
+    values:
+      - 1
+  env_reward_style: 
+    distribution: categorical
+    values:
+      - 'base'
+      - 'minus'
+  
+  
+
+

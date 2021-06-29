@@ -1,4 +1,5 @@
 import torch
+from torch.autograd import Variable
 from torch import nn
 import torch.nn.functional as F
 
@@ -8,10 +9,7 @@ from .Transformer import Transformer, NeuralNet
 import os.path as osp
 import os
 import numpy as np
-
-
-torch.manual_seed(config.seed)
-seed=config.seed
+import wandb
 
 
 class opponent(object):
@@ -33,6 +31,11 @@ class opponent(object):
                 reward,
                 agent_num,
                 agent_index,
+                model_dim,
+                drop_prob,
+                point_wise_dim,
+                num_sublayer,
+                num_head,
                 use_cuda,
                 op):
         self.alpha          = alpha
@@ -58,6 +61,12 @@ class opponent(object):
         self.use_cuda       = use_cuda
         self.op             = op
         self.use_cuda       = use_cuda
+
+        self.model_dim      = model_dim
+        self.drop_prob      = drop_prob
+        self.point_wise_dim = point_wise_dim
+        self.num_sublayer   = num_sublayer
+        self.num_head       = num_head
         
         if self.op == 'ffn':
             self.model = NeuralNet(self.vocal_size, 
@@ -72,11 +81,11 @@ class opponent(object):
             self.model = Transformer(vocal_size     = vocal_size,
                                     num_features    = num_features,
                                     num_outputs     = num_outputs,
-                                    model_dim       = 16,
-                                    drop_prob       = 0.1,
-                                    point_wise_dim  = 64,
-                                    num_sublayer    = 1,
-                                    num_head        = 2,
+                                    model_dim       = model_dim,
+                                    drop_prob       = drop_prob,
+                                    point_wise_dim  = point_wise_dim,
+                                    num_sublayer    = num_sublayer,
+                                    num_head        = num_head,
                                     is_cuda         = use_cuda)
         if use_cuda:
             self.model.cuda()
@@ -88,10 +97,10 @@ class opponent(object):
         iter_train_loss     = []
         val_loss            = []
         val_anlp            = []
-        counter             = 0
         best_score          = 1e10    
         best_score_val      = 1e10
         save_path           = self.model_path
+
         if not osp.exists(save_path):
                 os.makedirs(save_path)
         
@@ -126,6 +135,7 @@ class opponent(object):
             # shuffle은 하나?
             # train_loss.append(np.log(running_loss / n_batch)) --- loss에 log는 왜 취하는거지?
             total_loss = running_loss / n_batch
+            wandb.log({'train_loss':total_loss, 'epoch':epoch})
             train_loss.append(total_loss)                    # --- 사실 이것도 정확하지는 않자나.
 
             # ------------ val
@@ -142,9 +152,7 @@ class opponent(object):
                 best_score = total_loss
 
             for x_batch, c_batch,  m1_batch, m2_batch in val_generator:
-                batch_size = x_batch.shape[0]
                 n_batch += 1
-
                 if self.use_cuda:
                     x_batch, c_batch, m1_batch, m2_batch = Variable(x_batch.cuda()), \
                                                                     Variable(c_batch.cuda()), \
@@ -171,8 +179,13 @@ class opponent(object):
                 hzp_list.append(torch.mean(hzp).item())
                 anlp += score.item() 
 
-            temp_val_loss = running_loss / n_batch
-            val_anlp.append(anlp / n_batch)
+            temp_val_loss   = running_loss / n_batch
+            val_score       = anlp / n_batch
+            wandb.log({'val_loss'   : temp_val_loss,    'epoch':epoch})
+            wandb.log({'val_score'  : val_score,        'epoch':epoch})
+            wandb.log({'val_hz'     : np.mean(hz_list),        'epoch':epoch})
+            wandb.log({'val_hzp'    : np.mean(hzp_list),        'epoch':epoch})
+            val_anlp.append(val_score)
             val_loss.append(temp_val_loss)
             print('validation anlp : {}'.format(val_anlp[-1]))
             

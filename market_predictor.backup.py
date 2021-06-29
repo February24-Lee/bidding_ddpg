@@ -6,16 +6,15 @@
 '''
 import pandas as pd
 import argparse
+import numpy as np
 
 from src.marketModeling.data_loaders    import *
-from src.marketModeling.opponent_model  import *
+from src.marketModeling.opponent_model  import opponent
 from src.marketModeling.util_funcs      import prepare_data, prepare_data_multi
 import pprint as pp
 from sklearn.model_selection import train_test_split
 
 import sys
-
-compete_mode = config.compete_mode
 
 
 def main(args):

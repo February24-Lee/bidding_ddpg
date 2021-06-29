@@ -1,0 +1,40 @@
+program: market_predictor_sweep.py
+method: bayes
+metric:
+  name: val_loss
+  goal: minimize
+parameters:
+  model_dim: 
+    distribution: categorical
+    values:
+      - 16
+      - 32
+      - 64
+      - 128
+  alpha: 
+    distribution: log_uniform
+    min: -10
+    max: -3
+  drop_prob: 
+    distribution: categorical
+    values:
+      - 0
+      - 0.2
+      - 0.4
+      - 0.6
+  num_sublayer:
+    distribution: categorical
+    values:
+      - 1
+      - 2
+      - 3
+      - 4
+  num_head:
+    distribution: categorical
+    values:
+      - 2
+      - 4
+      - 8
+  
+
+

@@ -12,3 +12,5 @@ __pycache__/
 
 data
 log
+figures/
+opp_models/
