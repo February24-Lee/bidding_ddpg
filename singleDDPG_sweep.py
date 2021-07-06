@@ -1,5 +1,4 @@
 import torch
-from torch.utils.tensorboard import SummaryWriter
 from test_tube import Experiment
 import wandb
 
@@ -218,7 +217,7 @@ if __name__ == "__main__":
     parser.add_argument('--ddpg-batch-size',        type=int,       default=64)
     parser.add_argument('--ddpg-soft-copy-tau',     type=float,     default=0.001)
     parser.add_argument('--ddpg-discount',          type=float,     default=0.99)
-    parser.add_argument('--ddpg-epsilon',           type=int,       default=50000)
+    parser.add_argument('--ddpg-epsilon',           type=int,       default=1)
     parser.add_argument('--ddpg-max-bid-price',     type=int,       default=300)
     parser.add_argument('--ddpg-num_actor_layer',   type=int,       default=4)
     parser.add_argument('--ddpg-dim_actor_layer',   type=int,       default=16)

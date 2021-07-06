@@ -116,11 +116,16 @@ def train(args):
                                     market_price = info['market_price'],
                                     pctr=info['pctr'])
             
-        
+        if args['env_reward_style'] == 'base':
+            _reward = info['pctr']*reward[0]
+        elif args['env_reward_style'] == 'minus':
+            _reward = info['pctr']*reward[0] - info['pctr']*(reward[1]+reward[2])
+        else:
+            raise ValueError
+
         ddpg_agent.fill_memory(state0   = state0,
                             action      = action,
-                            reward      = info['pctr']*reward[0],
-                            #reward      = info['pctr']*reward[0] - info['pctr']*(reward[1]+reward[2]),
+                            reward      = _reward,
                             terminal    = terminal)
         
         if step > args['warmup'] :
@@ -147,24 +152,24 @@ def train(args):
             print('---------------------------')
             print('Episode : {}'.format(train_env.episode_idx))
             print('DDPG | Win : {} ({:.5f}%), Total Click : {} ({:.5f}%)'.format(
-                                ddpg_total_win, ddpg_total_win/ddpg_total_attened,
-                                ddpg_total_click, ddpg_total_click/ddpg_total_attened))
+                                ddpg_total_win, ddpg_total_win/(ddpg_total_attened+1e-5),
+                                ddpg_total_click, ddpg_total_click/(ddpg_total_attened+1e-5)))
             print('DDPG | average pctr : {}, remained budget'.format(
                                 np.mean(ddpg_pctr_list), ddpg_remained_budget))
             
             print('Lin | Win : {} ({:.5f}%), Total Click : {} ({:.5f}%)'.format(
-                                lin_total_win, lin_total_win/lin_total_attened,
-                                lin_total_click, lin_total_click/lin_total_attened))
+                                lin_total_win, lin_total_win/(lin_total_attened+1e-5),
+                                lin_total_click, lin_total_click/(lin_total_attened+1e-5)))
             print('Lin | average pctr : {}, remained budget'.format(
                                 np.mean(lin_pctr_list), lin_remained_budget))
             print('---------------------------')
             ###########
             #TODO 나중에 txt 저장 방식 수정 할 것. soft-coding으로
             temp_df = pd.DataFrame(np.array(episode))
-            if not path.isdir(path.join(tt_logger.save_dir,tt_logger.name, 'version_'.format(tt_logger.version), 'log_history')):
-                os.mkdir(path.join(tt_logger.save_dir, tt_logger.name,'version_'.format(tt_logger.version), 'log_history'))
-            temp_df.to_csv(path.join(tt_logger.save_dir, tt_logger.name,'version_'.format(tt_logger.version),'log_history', "Ep{}_log.txt".format(train_env.episode_idx)), index=False)
-            with open(path.join(tt_logger.save_dir, tt_logger.name,'version_'.format(tt_logger.version),'log_history', "Ep{}_ddpg_summary.pickle".format(train_env.episode_idx)), 'wb') as f:
+            if not path.isdir(path.join(tt_logger.save_dir,tt_logger.name, 'version_{}'.format(tt_logger.version), 'log_history')):
+                os.mkdir(path.join(tt_logger.save_dir, tt_logger.name,'version_{}'.format(tt_logger.version), 'log_history'))
+            temp_df.to_csv(path.join(tt_logger.save_dir, tt_logger.name,'version_{}'.format(tt_logger.version),'log_history', "Ep{}_log.txt".format(train_env.episode_idx)), index=False)
+            with open(path.join(tt_logger.save_dir, tt_logger.name,'version_{}'.format(tt_logger.version),'log_history', "Ep{}_ddpg_summary.pickle".format(train_env.episode_idx)), 'wb') as f:
                 pickle.dump(ddpg_summary, f)
             ###########
             bid_log["Episode : {}".format(train_env.episode_idx)] = np.array(episode)
@@ -194,10 +199,12 @@ if __name__ == "__main__":
     parser.add_argument('--data-path',              type=str,       default='data/make-ipinyou-data/')
     parser.add_argument('--seed',                   type=int,       default=777)
     parser.add_argument('--load-model',             type=str,       )
+    parser.add_argument('--epoch',                  type=str,       default=2)
     
     # --- environment
     parser.add_argument('--env-episode-max',        type=int,       default=1000)
     parser.add_argument('--env-budget-ratio',       type=float,     default=0.25)
+    parser.add_argument('--env_reward_style',       type=str,       default='base')
     
     # --- DDPG 
     parser.add_argument('--ddpg-dim-state',         type=int,       default=2)
@@ -212,8 +219,12 @@ if __name__ == "__main__":
     parser.add_argument('--ddpg-batch-size',        type=int,       default=64)
     parser.add_argument('--ddpg-soft-copy-tau',     type=float,     default=0.001)
     parser.add_argument('--ddpg-discount',          type=float,     default=0.99)
-    parser.add_argument('--ddpg-epsilon',           type=int,       default=50000)
+    parser.add_argument('--ddpg-epsilon',           type=int,       default=1)
     parser.add_argument('--ddpg-max-bid-price',     type=int,       default=300)
+    parser.add_argument('--ddpg-num_actor_layer',   type=int,       default=4)
+    parser.add_argument('--ddpg-dim_actor_layer',   type=int,       default=16)
+    parser.add_argument('--ddpg-num_critic_layer',  type=int,       default=4)
+    parser.add_argument('--ddpg-dim_critic_layer',  type=int,       default=16)
     
     # --- linear agent
     parser.add_argument('--lin-b0-path',            type=str,       default='data/linear_agent/ipinyou-data/2259/bid-model/lin-bid_1000_0.25_clk_277696.pickle')
