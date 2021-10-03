@@ -67,6 +67,7 @@ class DDPGAgent(BaseAgent):
         self.max_bid_price      = max_bid_price
         self.origin_budget      = budget
         self.remained_budget    = budget
+        self.before_remained_budget = budget
         self.num_attend_bid     = 0
         self.num_win            = 0
         self.num_click          = 0
@@ -154,8 +155,8 @@ class DDPGAgent(BaseAgent):
         input_x = np.array([obs,
                             self.remained_budget/self.origin_budget,
                             remained_opport,
-                            (self.before_remained_budget/self.remained_budget)/self.before_remained_budget,
-                            self.num_win/self.num_attend_bid,
+                            (self.before_remained_budget/self.remained_budget)/(self.before_remained_budget+1e-5),
+                            self.num_win/(self.num_attend_bid+1e-5),
                             self.num_click], dtype=np.float32)
         actor_action = self.actor(torch.from_numpy(input_x).to(self.device)).cpu().detach().numpy()
         actor_action += self.is_training * max(self.epsilon, 0) * self.random_process.sample()
@@ -174,8 +175,8 @@ class DDPGAgent(BaseAgent):
         input_x = np.array([obs,
                             self.remained_budget/self.origin_budget,
                             remained_opport,
-                            (self.before_remained_budget/self.remained_budget)/self.before_remained_budget,
-                            self.num_win/self.num_attend_bid,
+                            (self.before_remained_budget/self.remained_budget)/(self.before_remained_budget+1e-5),
+                            self.num_win/(self.num_attend_bid+1e-5),
                             self.num_click], dtype=np.float32)
         random_action = min(np.random.rand(1) * self.max_bid_price, self.remained_budget).astype(np.float32)
         return input_x, random_action[0]

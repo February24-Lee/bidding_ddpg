@@ -98,7 +98,8 @@ def train(args):
         #    _ = 1
         
         if step <= args['warmup'] :
-            state0, action = ddpg_agent.random_action(bid['pctr'])
+            state0, action = ddpg_agent.random_action(bid['pctr'], 
+                                                1-train_env.num_action/train_env.episode_maxlen)
         else:
             state0, action = ddpg_agent.action(bid['pctr'], 
                                                 1-train_env.num_action/train_env.episode_maxlen)
