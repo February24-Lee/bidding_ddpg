@@ -10,6 +10,7 @@ import argparse
 import random, pickle, math, os
 from os import path
 from copy import deepcopy
+import json
 
 from src.agent import DDPGAgent, LinearAgent
 from src.env.actionEnv import ActionEnv
@@ -33,8 +34,12 @@ def train(args):
     
     print(' ==== start training ===')
     
-    with open(path.join(args['data_path'], args['camp'], 'info.txt'), 'rb') as f:
-        camp_info = pickle.load(f)
+    # TODO modified
+    #with open(path.join(args['data_path'], args['camp'], 'info.txt'), 'rb') as f:
+    #    camp_info = pickle.load(f)
+
+    with open(f"data/linear_agent/ipinyou-data/{args['camp']}/info.json") as f:
+        camp_info = json.load(f)
 
     with open(args['lin_b0_path'], 'rb') as f:
         b0_file = pickle.load(f)
@@ -42,7 +47,7 @@ def train(args):
         
     # --- logger
     #tb_logger = SummaryWriter('log/')
-    tt_logger = Experiment(name=args['log_name'],
+    tt_logger = Experiment(name=args['log_name']+'_'+args['camp'],
                         save_dir = 'log/')
     tt_logger.tag(args)
     tt_logger.save()
@@ -106,7 +111,7 @@ def train(args):
         
         #linear_action = linear_agent.action(bid['pctr'])
         #episode.append([action, linear_action, bid['pctr']])
-        episode.append([action, bid['pctr'], bid['market_price']])
+        episode.append([action, bid['pctr'], bid['market_price'], bid['click']])
         
         next_bid, reward, terminal, info, num_action = train_env.step(np.array([action, bid['market_price']]))
         
@@ -202,7 +207,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     
     # --- auction path
-    parser.add_argument('--camp',                   type=str,       default='2259')
+    parser.add_argument('--camp',                   type=str,       default='1458')
     parser.add_argument('--data-path',              type=str,       default='data/make-ipinyou-data/')
     parser.add_argument('--seed',                   type=int,       default=777)
     parser.add_argument('--load-model',             type=str,       )
@@ -210,18 +215,18 @@ if __name__ == "__main__":
     
     # --- environment
     parser.add_argument('--env-episode-max',        type=int,       default=1000)
-    parser.add_argument('--env-budget-ratio',       type=float,     default=0.25)
-    parser.add_argument('--env_reward_style',       type=str,       default='base')
+    parser.add_argument('--env-budget-ratio',       type=float,     default=1/32)
+    parser.add_argument('--env_reward_style',       type=str,       default='minus')
     #parser.add_argument('--env_retrun_size',        type=int,       default=1)          # reward계산시 몇번을 더 볼 것인가.
     
     # --- DDPG 
     parser.add_argument('--ddpg-dim-state',         type=int,       default=6)
     parser.add_argument('--ddpg-dim-action',        type=int,       default=1)
-    parser.add_argument('--ddpg-actor-optim-lr',    type=float,     default=0.001)
-    parser.add_argument('--ddpg-critic-optim-lr',   type=float,     default=0.001)
+    parser.add_argument('--ddpg-actor-optim-lr',    type=float,     default=0.01)
+    parser.add_argument('--ddpg-critic-optim-lr',   type=float,     default=0.01)
     parser.add_argument('--ddpg-ou-theta',          type=float,     default=0.15)
     parser.add_argument('--ddpg-ou-mu',             type=float,     default=0.)
-    parser.add_argument('--ddpg-ou-sigma',          type=float,     default=0.2)
+    parser.add_argument('--ddpg-ou-sigma',          type=float,     default=0.02)
     parser.add_argument('--ddpg-memory-size',       type=int,       default=1000)
     parser.add_argument('--ddpg-window-length',     type=int,       default=1)
     parser.add_argument('--ddpg-batch-size',        type=int,       default=64)
