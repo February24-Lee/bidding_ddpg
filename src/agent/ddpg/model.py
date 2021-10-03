@@ -44,7 +44,7 @@ class Critic(nn.Module):
         super().__init__()
         self.module_list = nn.ModuleList()
         self.module_list.append(nn.Linear(dim_states, dim_layer))
-        self.module_list.append(nn.Linear(dim_layer + dim_action, dim_layer))
+        #self.module_list.append(nn.Linear(dim_layer + dim_action, dim_layer))
         for _ in range(num_layer-1):
             self.module_list.append(nn.Linear(dim_layer, dim_layer))
         self.module_list.append(nn.Linear(dim_layer, 1))
@@ -56,9 +56,9 @@ class Critic(nn.Module):
         
     def forward(self, x:List= None) -> float:
         state, action = x
-        x = F.relu(self.module_list[0](state))
-        x = F.relu(self.module_list[1](torch.cat([x, action], 1)))
-        for layer in self.module_list[2:-1]:
+        #x = F.relu(self.module_list[0](state))
+        x = F.relu(self.module_list[0](torch.cat([state, action], 1)))
+        for layer in self.module_list[1:-1]:
             x = F.relu(layer(x))
         out = self.module_list[-1](x)
         return out
