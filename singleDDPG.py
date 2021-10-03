@@ -117,7 +117,7 @@ def train(args):
                                     market_price = info['market_price'],
                                     pctr=info['pctr'])
             #linear_agent.update_result(is_win=False)
-        elif (reward[1] == 0) and (action != 0.):     # market price win
+        elif (reward[1] == 1) and (action != 0.):     # market price win
             ddpg_agent.update_result(is_win = False)
             #linear_agent.update_result(is_win=True, 
             #                        click = info['click'],
