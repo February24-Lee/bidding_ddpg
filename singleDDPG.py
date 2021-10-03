@@ -41,7 +41,6 @@ def train(args):
         lin_b0 = b0_file['b0']
         
     ### TODO 후에 수정 필요.
-    #tb_logger = SummaryWriter('log/')
     tt_logger = Experiment(name=args['log_name'],
                         save_dir = 'log/')
     tt_logger.tag(args)
@@ -204,7 +203,7 @@ if __name__ == "__main__":
     # --- environment
     parser.add_argument('--env-episode-max',        type=int,       default=1000)
     parser.add_argument('--env-budget-ratio',       type=float,     default=0.25)
-    parser.add_argument('--env_reward_style',       type=str,       default='base')
+    parser.add_argument('--env_reward_style',       type=str,       default='minus')
     
     # --- DDPG 
     parser.add_argument('--ddpg-dim-state',         type=int,       default=2)
@@ -235,7 +234,7 @@ if __name__ == "__main__":
     # --- logger
     parser.add_argument('--log-path',               type=str,      default='log/')
     parser.add_argument('--tb-log-path',            type=str,      default='log/')
-    parser.add_argument('--log-name',               type=str,      default='base_reward_base')
+    parser.add_argument('--log-name',               type=str,      default='minus')
     
     args = vars(parser.parse_args())
     
