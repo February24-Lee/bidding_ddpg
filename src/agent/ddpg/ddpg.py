@@ -170,9 +170,15 @@ class DDPGAgent(BaseAgent):
         return input_x, actor_action
     
     
-    def random_action(self, obs):
+    def random_action(self, obs, remained_opport):
+        input_x = np.array([obs,
+                            self.remained_budget/self.origin_budget,
+                            remained_opport,
+                            (self.before_remained_budget/self.remained_budget)/self.before_remained_budget,
+                            self.num_win/self.num_attend_bid,
+                            self.num_click], dtype=np.float32)
         random_action = min(np.random.rand(1) * self.max_bid_price, self.remained_budget).astype(np.float32)
-        return np.array([obs, self.remained_budget], dtype=np.float32), random_action[0]
+        return input_x, random_action[0]
         
             
             
