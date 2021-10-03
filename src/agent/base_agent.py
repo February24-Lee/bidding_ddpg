@@ -15,11 +15,13 @@ class BaseAgent(object):
             self.num_win += 1
             self.num_click += click
             self.list_pctr.append(pctr)
+            self.before_remained_budget = self.remained_budget
             self.remained_budget -= market_price
             
     def reset(self) -> None:
-        self.remained_budget    = self.origin_budget
-        self.num_win            = 0
-        self.num_attend_bid     = 0
-        self.num_click          = 0
-        self.list_pctr          = []
+        self.remained_budget        = self.origin_budget
+        self.before_remained_budget = self.origin_budget
+        self.num_win                = 0
+        self.num_attend_bid         = 0
+        self.num_click              = 0
+        self.list_pctr              = []

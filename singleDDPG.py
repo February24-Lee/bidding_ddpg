@@ -40,21 +40,22 @@ def train(args):
         b0_file = pickle.load(f)
         lin_b0 = b0_file['b0']
         
-    ### TODO 후에 수정 필요.
+    # --- logger
+    #tb_logger = SummaryWriter('log/')
     tt_logger = Experiment(name=args['log_name'],
                         save_dir = 'log/')
     tt_logger.tag(args)
     tt_logger.save()
     
+    
+    # --- bidding env option setting
     train_budget            = decision_budget(camp_info['cost_train'],
                                             camp_info['imp_train'],
                                             args['env_budget_ratio'],
                                             args['env_episode_max'])
-    
     train_num_auction       = camp_info['imp_train']
     train_epochs            = math.ceil(train_num_auction / args['env_episode_max'])
     train_iteration         = min(train_epochs * train_num_auction, train_num_auction)
-    
     train_dataloadr         = IPinyouDataLoader(data_path=args['data_path'],
                                                 market_path=None,
                                                 camp=args['camp'],
@@ -64,10 +65,11 @@ def train(args):
     train_env               = ActionEnv(dataloader=train_dataloadr,
                                         episode_maxlen=args['env_episode_max'])
     
-    # --- Agent
+    # --- Agent setting (DDPG)
     ddpg_agent              = DDPGAgent(**to_args_format(args, keyword='ddpg_'),
                                         budget=train_budget,
                                         logger=tt_logger)
+    
     if args['load_model'] is not None:
         print('load model')
         ckpt = torch.load(args['load_model'])
@@ -78,6 +80,7 @@ def train(args):
         ddpg_agent.actor = deepcopy(ddpg_agent.actor_target)
         ddpg_agent.critic = deepcopy(ddpg_agent.critic_target)               
     
+    # --- Agent setting (Lin Model)
     linear_agent            = LinearAgent(camp_info=camp_info,
                                         max_bid_price=args['ddpg_max_bid_price'],
                                         budget=train_budget)
@@ -90,35 +93,40 @@ def train(args):
     ddpg_agent.is_training = True
     for step in range(int(train_iteration)):
 
-        if ddpg_agent.remained_budget < 100:
-            _ = 1
+        #TODO 뭐 이거....
+        #if ddpg_agent.remained_budget < 100:
+        #    _ = 1
         
         if step <= args['warmup'] :
             state0, action = ddpg_agent.random_action(bid['pctr'])
         else:
-            state0, action = ddpg_agent.action(bid['pctr'])
-        linear_action = linear_agent.action(bid['pctr'])
-        episode.append([action, linear_action, bid['pctr']])
+            state0, action = ddpg_agent.action(bid['pctr'], 
+                                                1-train_env.num_action/train_env.episode_maxlen)
         
-        next_bid, reward, terminal, info = train_env.step(np.array([action, linear_action, bid['market_price']]))
+        #linear_action = linear_agent.action(bid['pctr'])
+        #episode.append([action, linear_action, bid['pctr']])
+        episode.append([action, bid['pctr'], bid['market_price']])
         
+        next_bid, reward, terminal, info, num_action = train_env.step(np.array([action, bid['market_price']]))
+        
+        # --- calculate reward
         if (reward[0] == 1) and (action != 0.):     # ddpg win
             ddpg_agent.update_result(is_win = True,
                                     click = info['click'],
                                     market_price = info['market_price'],
                                     pctr=info['pctr'])
-            linear_agent.update_result(is_win=False)
-        elif (reward[1] == 0) and (action != 0.):     # lin win
+            #linear_agent.update_result(is_win=False)
+        elif (reward[1] == 0) and (action != 0.):     # market price win
             ddpg_agent.update_result(is_win = False)
-            linear_agent.update_result(is_win=True, 
-                                    click = info['click'],
-                                    market_price = info['market_price'],
-                                    pctr=info['pctr'])
+            #linear_agent.update_result(is_win=True, 
+            #                        click = info['click'],
+            #                        market_price = info['market_price'],
+            #                        pctr=info['pctr'])
             
         if args['env_reward_style'] == 'base':
             _reward = info['pctr']*reward[0]
         elif args['env_reward_style'] == 'minus':
-            _reward = info['pctr']*reward[0] - info['pctr']*(reward[1]+reward[2])
+            _reward = info['pctr']*reward[0] - info['pctr']*(reward[1])
         else:
             raise ValueError
 
@@ -142,11 +150,11 @@ def train(args):
                             "ddpg_total_attened"    : ddpg_total_attened,
                             "ddpg_pctr_list"        : ddpg_pctr_list}
                             
-            lin_total_click        = linear_agent.num_click
-            lin_remained_budget    = linear_agent.remained_budget
-            lin_total_win          = linear_agent.num_win
-            lin_total_attened      = linear_agent.num_attend_bid
-            lin_pctr_list          = linear_agent.list_pctr
+            #lin_total_click        = linear_agent.num_click
+            #lin_remained_budget    = linear_agent.remained_budget
+            #lin_total_win          = linear_agent.num_win
+            #lin_total_attened      = linear_agent.num_attend_bid
+            #lin_pctr_list          = linear_agent.list_pctr
             
             print('---------------------------')
             print('Episode : {}'.format(train_env.episode_idx))
@@ -156,11 +164,11 @@ def train(args):
             print('DDPG | average pctr : {}, remained budget'.format(
                                 np.mean(ddpg_pctr_list), ddpg_remained_budget))
             
-            print('Lin | Win : {} ({:.5f}%), Total Click : {} ({:.5f}%)'.format(
-                                lin_total_win, lin_total_win/(lin_total_attened+1e-5),
-                                lin_total_click, lin_total_click/(lin_total_attened+1e-5)))
-            print('Lin | average pctr : {}, remained budget'.format(
-                                np.mean(lin_pctr_list), lin_remained_budget))
+            #print('Lin | Win : {} ({:.5f}%), Total Click : {} ({:.5f}%)'.format(
+            #                     lin_total_win, lin_total_win/(lin_total_attened+1e-5),
+            #                    lin_total_click, lin_total_click/(lin_total_attened+1e-5)))
+            #print('Lin | average pctr : {}, remained budget'.format(
+            #                    np.mean(lin_pctr_list), lin_remained_budget))
             print('---------------------------')
             ###########
             #TODO 나중에 txt 저장 방식 수정 할 것. soft-coding으로
@@ -172,11 +180,11 @@ def train(args):
                 pickle.dump(ddpg_summary, f)
             ###########
             bid_log["Episode : {}".format(train_env.episode_idx)] = np.array(episode)
-            episode = []
             
+            episode = []
             bid = train_env.reset()
             ddpg_agent.reset()
-            linear_agent.reset()
+            #linear_agent.reset()
         else : 
             bid = deepcopy(next_bid)
     
@@ -190,7 +198,6 @@ def train(args):
     
 if __name__ == "__main__":
     wandb.init()
-    
     parser = argparse.ArgumentParser()
     
     # --- auction path
@@ -203,10 +210,11 @@ if __name__ == "__main__":
     # --- environment
     parser.add_argument('--env-episode-max',        type=int,       default=1000)
     parser.add_argument('--env-budget-ratio',       type=float,     default=0.25)
-    parser.add_argument('--env_reward_style',       type=str,       default='minus')
+    parser.add_argument('--env_reward_style',       type=str,       default='base')
+    #parser.add_argument('--env_retrun_size',        type=int,       default=1)          # reward계산시 몇번을 더 볼 것인가.
     
     # --- DDPG 
-    parser.add_argument('--ddpg-dim-state',         type=int,       default=2)
+    parser.add_argument('--ddpg-dim-state',         type=int,       default=6)
     parser.add_argument('--ddpg-dim-action',        type=int,       default=1)
     parser.add_argument('--ddpg-actor-optim-lr',    type=float,     default=0.001)
     parser.add_argument('--ddpg-critic-optim-lr',   type=float,     default=0.001)

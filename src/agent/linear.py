@@ -61,7 +61,9 @@ class LinearAgent(BaseAgent):
         self.test_cpm           = camp_info["cost_test"]/camp_info["imp_test"]
         self.test_theta_avg     = camp_info['clk_test']/camp_info['imp_test']
         
-    def action(self, observed_state : dict = None, is_training : bool = True) -> int:
+    def action(self,
+                observed_state  : dict = None,
+                is_training     : bool = True) -> int:
         if is_training:
             theta_avg = self.train_theta_avg
         else:

@@ -110,6 +110,7 @@ class DDPGAgent(BaseAgent):
         self.critic_optim.zero_grad()
         hat_q_batch = self.critic([torch.from_numpy(state0_batch).to(self.device), torch.from_numpy(action_batch).to(self.device)])
         critic_loss = self.criterion(hat_q_batch, target_q_values)
+        
         # --- log 
         wandb.log({'critic_loss' : critic_loss.item(), 'step':step})
         if self.logger is not None:
@@ -137,8 +138,25 @@ class DDPGAgent(BaseAgent):
             self.memory.append(state0, action, reward, terminal)
         
         
-    def action(self, obs : np.ndarray = None, is_decay_epsilon : bool = True) -> np.ndarray:
-        input_x = np.array([obs, self.remained_budget], dtype=np.float32)
+    def action(self,
+                obs                 : np.ndarray    = None,
+                remained_opport     : int           = None,
+                is_decay_epsilon    : bool          = True) -> np.ndarray:
+        '''
+        state :
+            - pCTR
+            - Remaining budget divided by the initiial budget, 
+            - the number of regulation opportunitites left (0 < x < 1)
+            - the budget consumption rate
+            - auction win rate 
+            - 
+        '''
+        input_x = np.array([obs,
+                            self.remained_budget/self.origin_budget,
+                            remained_opport,
+                            (self.before_remained_budget/self.remained_budget)/self.before_remained_budget,
+                            self.num_win/self.num_attend_bid,
+                            self.num_click], dtype=np.float32)
         actor_action = self.actor(torch.from_numpy(input_x).to(self.device)).cpu().detach().numpy()
         actor_action += self.is_training * max(self.epsilon, 0) * self.random_process.sample()
         actor_action = np.clip(actor_action, 0., 1.)
