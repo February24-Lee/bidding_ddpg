@@ -27,7 +27,7 @@ class ActionEnv(gym.Env):
     def step(self, actions : np.ndarray) -> List:
         agent_num       = len(actions)
         winner_idx      = np.argmax(actions)
-        market_price    = actions[np.argsort(actions)[-1]] # --- Second
+        market_price    = actions[np.argsort(actions)[-2]] # --- second 
         winner_click    = self.now_action['click']
         winner_pctr     = self.now_action['pctr']
         
@@ -37,13 +37,12 @@ class ActionEnv(gym.Env):
                 'click'        : winner_click,
                 'pctr'         : winner_pctr}
         
-        self.num_action += 1
         self.now_action = self.dataloader.get_next()
         if self.num_action >= self.episode_maxlen :
             terminal = True
         else :
             terminal = False
         
-        return self.now_action, reward, terminal, info, self.num_action
+        return self.now_action, reward, terminal, info
         
         
