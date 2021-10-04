@@ -164,7 +164,7 @@ class DDPGAgent(BaseAgent):
         
         actor_action = self.max_bid_price * actor_action
         actor_action = actor_action[0]
-        actor_action = min(self.remained_budget, actor_action).astype(np.float32)
+        actor_action = min(self.remained_budget, actor_action)#.astype(np.float32)
         if is_decay_epsilon:
             self.epsilon = 1/self.epsilon
             
@@ -179,7 +179,7 @@ class DDPGAgent(BaseAgent):
                             self.num_win/(self.num_attend_bid+1e-5),
                             self.num_click], dtype=np.float32)
         random_action = min(np.random.rand(1) * self.max_bid_price, self.remained_budget).astype(np.float32)
-        return input_x, random_action[0]
+        return input_x, random_action
         
             
             
