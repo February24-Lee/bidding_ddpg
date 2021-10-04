@@ -15,6 +15,7 @@ from .memory import SequentialMemory
 
 class DDPGAgent(BaseAgent):
     def __init__(self,
+                idx                 : int,
                 dim_state           : int,
                 dim_action          : int,
                 actor_optim_lr      : float = 0.001,
@@ -36,7 +37,7 @@ class DDPGAgent(BaseAgent):
                 num_critic_layer    : int   = None,
                 dim_critic_layer    : int   = None) -> None:
         super().__init__()
-        
+        self.idx = idx
         self.actor              = Actor(dim_state   = dim_state, 
                                         dim_action  = dim_action,
                                         num_layer   = num_actor_layer,
@@ -113,10 +114,10 @@ class DDPGAgent(BaseAgent):
         critic_loss = self.criterion(hat_q_batch, target_q_values)
         
         # --- log 
-        wandb.log({'critic_loss' : critic_loss.item(), 'step':step})
+        wandb.log({f'agent_{self.idx}_critic_loss' : critic_loss.item(), 'step':step})
         if self.logger is not None:
             #self.logger.add_scalar('critic_loss', critic_loss.item() ,global_step =step)
-            self.logger.log({'critic_loss' : critic_loss.item()} ,global_step = step)
+            self.logger.log({f'agent_{self.idx}_critic_loss' : critic_loss.item()} ,global_step = step)
         critic_loss.backward()
         self.critic_optim.step()
         
@@ -124,9 +125,9 @@ class DDPGAgent(BaseAgent):
         self.actor_optim.zero_grad()
         policy_loss = -self.critic([torch.from_numpy(state0_batch).to(self.device), self.actor(torch.from_numpy(state0_batch).to(self.device))])
         policy_loss = policy_loss.mean()
-        wandb.log({'policy_loss' : policy_loss.item(), 'step':step})
+        wandb.log({f'agent_{self.idx}_policy_loss' : policy_loss.item(), 'step':step})
         if self.logger is not None:
-            self.logger.log({'policy_loss' : policy_loss.item()},global_step =step)
+            self.logger.log({f'agent_{self.idx}_policy_loss' : policy_loss.item()},global_step =step)
         policy_loss.backward()
         self.actor_optim.step()
         
