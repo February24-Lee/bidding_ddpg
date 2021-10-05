@@ -69,7 +69,7 @@ class LinearAgent(BaseAgent):
         else:
             theta_avg = self.test_theta_avg
             
-        action = min(int(observed_state * self.b0 / theta_avg), self.max_bid_price)
+        action = min(observed_state * self.b0 / theta_avg, self.max_bid_price)
         action = min(self.remained_budget, action)
         return action
 

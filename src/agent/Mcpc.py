@@ -1,7 +1,7 @@
 from .base_agent import BaseAgent
 import numpy as np
 
-class Mcpc(BaseAgent):
+class McpcAgent(BaseAgent):
     def __init__(self,
                 camp_info       : dict = None,
                 max_bid_price   : int = None,
@@ -14,6 +14,7 @@ class Mcpc(BaseAgent):
         super().__init__()
         
         self.origin_budget      = budget
+        self.remained_budget    = budget
         self.num_win            = 0
         self.num_attend_bid     = 0
         self.num_click          = 0
@@ -43,7 +44,7 @@ class Mcpc(BaseAgent):
             cpc = self.train_cpc
         else :
             cpc = self.test_cpc
-        action = min(int(observed_state * cpc), self.max_bid_price)
+        action = min(observed_state * cpc, self.max_bid_price)
         action = min(self.remained_budget, action)
         return action
         

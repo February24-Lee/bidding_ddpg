@@ -74,11 +74,13 @@ def train(args):
     ddpg_agent0              = DDPGAgent(idx= 0,
                                         **to_args_format(args, keyword='ddpg_'),
                                         budget=train_budget,
-                                        logger=tt_logger)
+                                        logger=tt_logger,
+                                        device_id=1)
     ddpg_agent1              = DDPGAgent(idx= 1,
                                         **to_args_format(args, keyword='ddpg_'),
                                         budget=train_budget,
-                                        logger=tt_logger)
+                                        logger=tt_logger,
+                                        device_id=1)
     
     #if args['load_model'] is not None:
     #    print('load model')
@@ -277,7 +279,6 @@ def train(args):
             mcpc_agent.reset()
         else : 
             bid = deepcopy(next_bid)
-
         if step % 10000 == 0:
             print('save...')
             # Save model
@@ -318,7 +319,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     
     # --- auction path
-    parser.add_argument('--camp',                   type=str,       default='1458')
+    parser.add_argument('--camp',                   type=str,       default='2821')
     parser.add_argument('--data-path',              type=str,       default='data/make-ipinyou-data/')
     parser.add_argument('--seed',                   type=int,       default=777)
     parser.add_argument('--load-model',             type=str,       )
@@ -351,7 +352,7 @@ if __name__ == "__main__":
     parser.add_argument('--ddpg-dim_critic_layer',  type=int,       default=16)
     
     # --- linear agent
-    parser.add_argument('--lin-b0-path',            type=str,       default=f'data/linear_agent/ipinyou-data/{1458}/bid-model/lin-bid_1000_{1/32}_clk_{86552}.pickle')
+    parser.add_argument('--lin-b0-path',            type=str,       default=f'data/linear_agent/ipinyou-data/{2821}/bid-model/lin-bid_1000_{1/32}_clk_{140073}.pickle')
 
     # --- train
     parser.add_argument('--warmup',                 type=int,       default=100)

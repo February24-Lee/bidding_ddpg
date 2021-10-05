@@ -295,7 +295,6 @@ def train(args):
                         'optim_actor_state_dict'    : ddpg_agent1.actor_optim.state_dict(),
                         }, 
                         path.join(tt_logger.save_dir,  tt_logger.name, 'version_{}'.format(tt_logger.version),  'ddpg1_final_model.pt'))
-
     
     # Save model
     # --- DDPG0
@@ -318,7 +317,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     
     # --- auction path
-    parser.add_argument('--camp',                   type=str,       default='1458')
+    parser.add_argument('--camp',                   type=str,       default='2259')
     parser.add_argument('--data-path',              type=str,       default='data/make-ipinyou-data/')
     parser.add_argument('--seed',                   type=int,       default=777)
     parser.add_argument('--load-model',             type=str,       )
@@ -351,7 +350,7 @@ if __name__ == "__main__":
     parser.add_argument('--ddpg-dim_critic_layer',  type=int,       default=16)
     
     # --- linear agent
-    parser.add_argument('--lin-b0-path',            type=str,       default=f'data/linear_agent/ipinyou-data/{1458}/bid-model/lin-bid_1000_{1/32}_clk_{86552}.pickle')
+    parser.add_argument('--lin-b0-path',            type=str,       default=f'data/linear_agent/ipinyou-data/{2259}/bid-model/lin-bid_1000_{1/32}_clk_{277696}.pickle')
 
     # --- train
     parser.add_argument('--warmup',                 type=int,       default=100)

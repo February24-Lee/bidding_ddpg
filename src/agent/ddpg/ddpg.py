@@ -35,7 +35,8 @@ class DDPGAgent(BaseAgent):
                 num_actor_layer     : int   = None,
                 dim_actor_layer     : int   = None,
                 num_critic_layer    : int   = None,
-                dim_critic_layer    : int   = None) -> None:
+                dim_critic_layer    : int   = None,
+                device_id           : int   = None) -> None:
         super().__init__()
         self.idx = idx
         self.actor              = Actor(dim_state   = dim_state, 
@@ -74,8 +75,11 @@ class DDPGAgent(BaseAgent):
         self.num_click          = 0
         self.list_pctr          = []
         
-        self.device             = 'cuda' if torch.cuda.is_available() else 'cpu'
-        
+        if device_id is None :
+            self.device         = 'cuda' if torch.cuda.is_available() else 'cpu'
+        else :
+            self.device         = torch.device(device_id)
+
         self.criterion          = nn.MSELoss()
         self.actor              = self.actor.to(self.device)
         self.actor_target       = self.actor_target.to(self.device)
@@ -164,12 +168,11 @@ class DDPGAgent(BaseAgent):
         actor_action = np.clip(actor_action, 0., 1.)
         
         actor_action = self.max_bid_price * actor_action
-        actor_action = actor_action[0]
-        actor_action = min(self.remained_budget, actor_action)#.astype(np.float32)
+        actor_action = min(self.remained_budget, actor_action).astype(np.float32)
         if is_decay_epsilon:
             self.epsilon = 1/self.epsilon
-            
-        return input_x, actor_action
+        
+        return input_x,  actor_action if actor_action.shape == () else actor_action[0]
     
     
     def random_action(self, obs, remained_opport):
@@ -180,7 +183,7 @@ class DDPGAgent(BaseAgent):
                             self.num_win/(self.num_attend_bid+1e-5),
                             self.num_click], dtype=np.float32)
         random_action = min(np.random.rand(1) * self.max_bid_price, self.remained_budget).astype(np.float32)
-        return input_x, random_action
+        return input_x, random_action if random_action.shape == () else random_action[0]
         
             
             

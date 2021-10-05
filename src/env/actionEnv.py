@@ -37,6 +37,7 @@ class ActionEnv(gym.Env):
                 'click'        : winner_click,
                 'pctr'         : winner_pctr}
         
+        self.num_action += 1
         self.now_action = self.dataloader.get_next()
         if self.num_action >= self.episode_maxlen :
             terminal = True
