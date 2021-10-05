@@ -93,11 +93,12 @@ class IPinyouDataLoader(DataLoaderBase):
         bid['click'] = float(raw_bid[0])
         bid['market_price'] = float(raw_bid[1])
         bid['pctr'] = float(raw_bid[2])
-        try:
-            bid['bid'] = list(map(int, raw_bid[3:23]))
-        except ValueError:
-            convert_float = list(map(float, raw_bid[3:23]))
-            bid['bid'] = list(map(int, convert_float))
+        
+        #try:
+        #    bid['bid'] = list(map(int, raw_bid[3:23]))
+        #except ValueError:
+        #    convert_float = list(map(float, raw_bid[3:23]))
+        #    bid['bid'] = list(map(int, convert_float))
         if market is not None:
             bid['market_price'] = list(map(float, market.strip().split()))
         return bid
