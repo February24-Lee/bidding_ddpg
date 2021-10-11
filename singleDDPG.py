@@ -73,7 +73,8 @@ def train(args):
     # --- Agent setting (DDPG)
     ddpg_agent              = DDPGAgent(**to_args_format(args, keyword='ddpg_'),
                                         budget=train_budget,
-                                        logger=tt_logger)
+                                        logger=tt_logger,
+                                        idx=0)
     
     if args['load_model'] is not None:
         print('load model')
@@ -113,7 +114,7 @@ def train(args):
         #episode.append([action, linear_action, bid['pctr']])
         episode.append([action, bid['pctr'], bid['market_price'], bid['click']])
         
-        next_bid, reward, terminal, info, num_action = train_env.step(np.array([action, bid['market_price']]))
+        next_bid, reward, terminal, info  = train_env.step(np.array([action, bid['market_price']]))
         
         # --- calculate reward
         if (reward[0] == 1) and (action != 0.):     # ddpg win
@@ -182,8 +183,8 @@ def train(args):
             if not path.isdir(path.join(tt_logger.save_dir,tt_logger.name, 'version_{}'.format(tt_logger.version), 'log_history')):
                 os.mkdir(path.join(tt_logger.save_dir, tt_logger.name,'version_{}'.format(tt_logger.version), 'log_history'))
             temp_df.to_csv(path.join(tt_logger.save_dir, tt_logger.name,'version_{}'.format(tt_logger.version),'log_history', "Ep{}_log.txt".format(train_env.episode_idx)), index=False)
-            with open(path.join(tt_logger.save_dir, tt_logger.name,'version_{}'.format(tt_logger.version),'log_history', "Ep{}_ddpg_summary.pickle".format(train_env.episode_idx)), 'wb') as f:
-                pickle.dump(ddpg_summary, f)
+            #with open(path.join(tt_logger.save_dir, tt_logger.name,'version_{}'.format(tt_logger.version),'log_history', "Ep{}_ddpg_summary.pickle".format(train_env.episode_idx)), 'wb') as f:
+            #    pickle.dump(ddpg_summary, f)
             ###########
             bid_log["Episode : {}".format(train_env.episode_idx)] = np.array(episode)
             
@@ -224,7 +225,7 @@ if __name__ == "__main__":
     parser.add_argument('--ddpg-dim-action',        type=int,       default=1)
     parser.add_argument('--ddpg-actor-optim-lr',    type=float,     default=0.01)
     parser.add_argument('--ddpg-critic-optim-lr',   type=float,     default=0.01)
-    parser.add_argument('--ddpg-ou-theta',          type=float,     default=0.15)
+    parser.add_argument('--ddpg-ou-theta',          type=float,     default=0.015)
     parser.add_argument('--ddpg-ou-mu',             type=float,     default=0.)
     parser.add_argument('--ddpg-ou-sigma',          type=float,     default=0.02)
     parser.add_argument('--ddpg-memory-size',       type=int,       default=1000)

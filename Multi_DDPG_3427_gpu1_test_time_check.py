@@ -10,6 +10,7 @@ import random, pickle, math, os
 from os import path
 from copy import deepcopy
 import json
+import time
 
 from src.agent import DDPGAgent, LinearAgent, McpcAgent
 from src.env.actionEnv import ActionEnv
@@ -120,7 +121,10 @@ def test(args):
     episode = []
     #ddpg_agent0.is_training = False
     #ddpg_agent1.is_training = False
+    time_hist = []
     for step in range(int(test_iteration)):
+
+        start_time = time.process_time()
         agent0_state0, agent0_action = ddpg_agent0.action(bid['pctr'], 
                                             1-test_env.num_action/test_env.episode_maxlen)
         agent1_state0, agent1_action = ddpg_agent1.action(bid['pctr'], 
@@ -135,7 +139,9 @@ def test(args):
                                                                     linear_action,
                                                                     mcpc_action,
                                                                     bid['market_price']]))
-        
+        end_time = time.process_time()
+        time_hist.append((end_time-start_time)*1000)
+
         # --- calculate reward
         if reward[0] == 1:     # ddpg0 win
             ddpg_agent0.update_result(is_win = True,
@@ -175,131 +181,23 @@ def test(args):
             if agent1_action != 0.:
                 ddpg_agent1.update_result(is_win = False)
             linear_agent.update_result(is_win=False)
-            
-        # --- 중간체크            
-        if step % 10000 == 0:
-            # --- DDPG 0
-            ddpg_agent0_total_click        = ddpg_agent0.num_click
-            ddpg_agent0_remained_budget    = ddpg_agent0.remained_budget
-            ddpg_agent0_total_win          = ddpg_agent0.num_win
-            ddpg_agent0_total_attened      = ddpg_agent0.num_attend_bid
-            ddpg_agent0_pctr_list          = ddpg_agent0.list_pctr
-            
-            # --- DDPG 1
-            ddpg_agent1_total_click        = ddpg_agent1.num_click
-            ddpg_agent1_remained_budget    = ddpg_agent1.remained_budget
-            ddpg_agent1_total_win          = ddpg_agent1.num_win
-            ddpg_agent1_total_attened      = ddpg_agent1.num_attend_bid
-            ddpg_agent1_pctr_list          = ddpg_agent1.list_pctr
-                            
-            lin_total_click        = linear_agent.num_click
-            lin_remained_budget    = linear_agent.remained_budget
-            lin_total_win          = linear_agent.num_win
-            lin_total_attened      = linear_agent.num_attend_bid
-            lin_pctr_list          = linear_agent.list_pctr
-            
-            mcpc_total_click        = mcpc_agent.num_click
-            mcpc_remained_budget    = mcpc_agent.remained_budget
-            mcpc_total_win          = mcpc_agent.num_win
-            mcpc_total_attened      = mcpc_agent.num_attend_bid
-            mcpc_pctr_list          = mcpc_agent.list_pctr
-            
-            print('---------------------------')
-            print('step : {}'.format(step))
-            print('DDPG0 | Win : {} ({:.5f}%), Total Click : {} ({:.5f}%)'.format(
-                                ddpg_agent0_total_win, ddpg_agent0_total_win/(ddpg_agent0_total_attened+1e-5),
-                                ddpg_agent0_total_click, ddpg_agent0_total_click/(ddpg_agent0_total_attened+1e-5)))
-            print('DDPG0 | average pctr : {}, remained budget {}'.format(
-                                np.mean(ddpg_agent0_pctr_list), ddpg_agent0_remained_budget))
-            
-            print('DDPG1 | Win : {} ({:.5f}%), Total Click : {} ({:.5f}%)'.format(
-                                ddpg_agent1_total_win, ddpg_agent1_total_win/(ddpg_agent1_total_attened+1e-5),
-                                ddpg_agent1_total_click, ddpg_agent1_total_click/(ddpg_agent1_total_attened+1e-5)))
-            print('DDPG1 | average pctr : {}, remained budget {}'.format(
-                                np.mean(ddpg_agent1_pctr_list), ddpg_agent1_remained_budget))
-            
-            print('Lin | Win : {} ({:.5f}%), Total Click : {} ({:.5f}%)'.format(
-                                lin_total_win, lin_total_win/(lin_total_attened+1e-5),
-                                lin_total_click, lin_total_click/(lin_total_attened+1e-5)))
-            print('Lin | average pctr : {}, remained budget'.format(
-                                np.mean(lin_pctr_list), lin_remained_budget))
-            
-            print('Mcpc | Win : {} ({:.5f}%), Total Click : {} ({:.5f}%)'.format(
-                                mcpc_total_win, mcpc_total_win/(mcpc_total_attened+1e-5),
-                                mcpc_total_click, mcpc_total_click/(mcpc_total_attened+1e-5)))
-            print('Mcpc | average pctr : {}, remained budget'.format(
-                                np.mean(mcpc_pctr_list), mcpc_remained_budget))
-            print('---------------------------')
-            
-            temp_df = pd.DataFrame(np.array(episode))
-            if not path.isdir(path.join(tt_logger.save_dir,tt_logger.name, 'version_{}'.format(tt_logger.version), 'log_history_test')):
-                os.mkdir(path.join(tt_logger.save_dir, tt_logger.name,'version_{}'.format(tt_logger.version), 'log_history_test'))
-            temp_df.to_csv(path.join(tt_logger.save_dir, tt_logger.name,'version_{}'.format(tt_logger.version),'log_history_test', "Ep{}_log.txt".format(test_env.episode_idx)), index=False)
-            episode = []
+
 
         bid = deepcopy(next_bid)
+        if step % 10000 ==0 :
+            break
+    
+    print(f'average time : {np.mean(time_hist)}')
+
                 
         
-    # --- DDPG 0
-    ddpg_agent0_total_click        = ddpg_agent0.num_click
-    ddpg_agent0_remained_budget    = ddpg_agent0.remained_budget
-    ddpg_agent0_total_win          = ddpg_agent0.num_win
-    ddpg_agent0_total_attened      = ddpg_agent0.num_attend_bid
-    ddpg_agent0_pctr_list          = ddpg_agent0.list_pctr
-    
-    # --- DDPG 1
-    ddpg_agent1_total_click        = ddpg_agent1.num_click
-    ddpg_agent1_remained_budget    = ddpg_agent1.remained_budget
-    ddpg_agent1_total_win          = ddpg_agent1.num_win
-    ddpg_agent1_total_attened      = ddpg_agent1.num_attend_bid
-    ddpg_agent1_pctr_list          = ddpg_agent1.list_pctr
-                    
-    lin_total_click        = linear_agent.num_click
-    lin_remained_budget    = linear_agent.remained_budget
-    lin_total_win          = linear_agent.num_win
-    lin_total_attened      = linear_agent.num_attend_bid
-    lin_pctr_list          = linear_agent.list_pctr
-    
-    mcpc_total_click        = mcpc_agent.num_click
-    mcpc_remained_budget    = mcpc_agent.remained_budget
-    mcpc_total_win          = mcpc_agent.num_win
-    mcpc_total_attened      = mcpc_agent.num_attend_bid
-    mcpc_pctr_list          = mcpc_agent.list_pctr
-    
-    print('---------------------------')
-    print('Episode : final')
-    print('DDPG0 | Win : {} ({:.5f}%), Total Click : {} ({:.5f}%)'.format(
-                        ddpg_agent0_total_win, ddpg_agent0_total_win/(ddpg_agent0_total_attened+1e-5),
-                        ddpg_agent0_total_click, ddpg_agent0_total_click/(ddpg_agent0_total_attened+1e-5)))
-    print('DDPG0 | average pctr : {}, remained budget {}'.format(
-                        np.mean(ddpg_agent0_pctr_list), ddpg_agent0_remained_budget))
-    
-    print('DDPG1 | Win : {} ({:.5f}%), Total Click : {} ({:.5f}%)'.format(
-                        ddpg_agent1_total_win, ddpg_agent1_total_win/(ddpg_agent1_total_attened+1e-5),
-                        ddpg_agent1_total_click, ddpg_agent1_total_click/(ddpg_agent1_total_attened+1e-5)))
-    print('DDPG1 | average pctr : {}, remained budget {}'.format(
-                        np.mean(ddpg_agent1_pctr_list), ddpg_agent1_remained_budget))
-    
-    print('Lin | Win : {} ({:.5f}%), Total Click : {} ({:.5f}%)'.format(
-                            lin_total_win, lin_total_win/(lin_total_attened+1e-5),
-                        lin_total_click, lin_total_click/(lin_total_attened+1e-5)))
-    print('Lin | average pctr : {}, remained budget'.format(
-                        np.mean(lin_pctr_list), lin_remained_budget))
-    
-    print('Mcpc | Win : {} ({:.5f}%), Total Click : {} ({:.5f}%)'.format(
-                        mcpc_total_win, mcpc_total_win/(mcpc_total_attened+1e-5),
-                        mcpc_total_click, mcpc_total_click/(mcpc_total_attened+1e-5)))
-    print('Mcpc | average pctr : {}, remained budget'.format(
-                        np.mean(mcpc_pctr_list), mcpc_remained_budget))
-    print('---------------------------')
-            
 
     
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     
     # --- auction path
-    parser.add_argument('--camp',                   type=str,       default='2821')
+    parser.add_argument('--camp',                   type=str,       default='3427')
     parser.add_argument('--data-path',              type=str,       default='data/make-ipinyou-data/')
     parser.add_argument('--seed',                   type=int,       default=777)
     parser.add_argument('--load-model',             type=str,       )
@@ -332,11 +230,11 @@ if __name__ == "__main__":
     parser.add_argument('--ddpg-dim_critic_layer',  type=int,       default=16)
     
     # --- linear agent
-    parser.add_argument('--lin-b0-path',            type=str,       default=f'data/linear_agent/ipinyou-data/{2821}/bid-model/lin-bid_1000_{1/32}_clk_{140073}.pickle')
+    parser.add_argument('--lin-b0-path',            type=str,       default=f'data/linear_agent/ipinyou-data/{3427}/bid-model/lin-bid_1000_{1/32}_clk_{109158}.pickle')
 
     # --- test 
-    parser.add_argument('--agent0_save_path',       type=str,       default=f'log/minus_{2821}/version_{3}/ddpg0_final_model.pt')
-    parser.add_argument('--agent1_save_path',       type=str,       default=f'log/minus_{2821}/version_{3}/ddpg1_final_model.pt')
+    parser.add_argument('--agent0_save_path',       type=str,       default=f'log/minus_{3427}/version_{1}/ddpg0_final_model.pt')
+    parser.add_argument('--agent1_save_path',       type=str,       default=f'log/minus_{3427}/version_{1}/ddpg1_final_model.pt')
     
     # --- logger
     parser.add_argument('--log-path',               type=str,      default='log/')

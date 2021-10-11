@@ -74,12 +74,12 @@ def test(args):
                                         **to_args_format(args, keyword='ddpg_'),
                                         budget=test_budget,
                                         logger=tt_logger,
-                                        device_id=1)
+                                        device_id=0)
     ddpg_agent1              = DDPGAgent(idx= 1,
                                         **to_args_format(args, keyword='ddpg_'),
                                         budget=test_budget,
                                         logger=tt_logger,
-                                        device_id=1)
+                                        device_id=0)
     
     # --- load agent weight
     print('load model')
@@ -118,8 +118,6 @@ def test(args):
     # --- Train
     bid = test_env.reset()
     episode = []
-    #ddpg_agent0.is_training = False
-    #ddpg_agent1.is_training = False
     for step in range(int(test_iteration)):
         agent0_state0, agent0_action = ddpg_agent0.action(bid['pctr'], 
                                             1-test_env.num_action/test_env.episode_maxlen)
@@ -299,7 +297,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     
     # --- auction path
-    parser.add_argument('--camp',                   type=str,       default='2821')
+    parser.add_argument('--camp',                   type=str,       default='3386')
     parser.add_argument('--data-path',              type=str,       default='data/make-ipinyou-data/')
     parser.add_argument('--seed',                   type=int,       default=777)
     parser.add_argument('--load-model',             type=str,       )
@@ -332,11 +330,11 @@ if __name__ == "__main__":
     parser.add_argument('--ddpg-dim_critic_layer',  type=int,       default=16)
     
     # --- linear agent
-    parser.add_argument('--lin-b0-path',            type=str,       default=f'data/linear_agent/ipinyou-data/{2821}/bid-model/lin-bid_1000_{1/32}_clk_{140073}.pickle')
+    parser.add_argument('--lin-b0-path',            type=str,       default=f'data/linear_agent/ipinyou-data/{3386}/bid-model/lin-bid_1000_{1/32}_clk_{105523}.pickle')
 
     # --- test 
-    parser.add_argument('--agent0_save_path',       type=str,       default=f'log/minus_{2821}/version_{3}/ddpg0_final_model.pt')
-    parser.add_argument('--agent1_save_path',       type=str,       default=f'log/minus_{2821}/version_{3}/ddpg1_final_model.pt')
+    parser.add_argument('--agent0_save_path',       type=str,       default=f'log/minus_{3386}/version_{1}/ddpg0_final_model.pt')
+    parser.add_argument('--agent1_save_path',       type=str,       default=f'log/minus_{3386}/version_{1}/ddpg1_final_model.pt')
     
     # --- logger
     parser.add_argument('--log-path',               type=str,      default='log/')

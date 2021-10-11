@@ -299,7 +299,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     
     # --- auction path
-    parser.add_argument('--camp',                   type=str,       default='2821')
+    parser.add_argument('--camp',                   type=str,       default='2997')
     parser.add_argument('--data-path',              type=str,       default='data/make-ipinyou-data/')
     parser.add_argument('--seed',                   type=int,       default=777)
     parser.add_argument('--load-model',             type=str,       )
@@ -332,11 +332,11 @@ if __name__ == "__main__":
     parser.add_argument('--ddpg-dim_critic_layer',  type=int,       default=16)
     
     # --- linear agent
-    parser.add_argument('--lin-b0-path',            type=str,       default=f'data/linear_agent/ipinyou-data/{2821}/bid-model/lin-bid_1000_{1/32}_clk_{140073}.pickle')
+    parser.add_argument('--lin-b0-path',            type=str,       default=f'data/linear_agent/ipinyou-data/{2997}/bid-model/lin-bid_1000_{1/32}_clk_{14205}.pickle')
 
     # --- test 
-    parser.add_argument('--agent0_save_path',       type=str,       default=f'log/minus_{2821}/version_{3}/ddpg0_final_model.pt')
-    parser.add_argument('--agent1_save_path',       type=str,       default=f'log/minus_{2821}/version_{3}/ddpg1_final_model.pt')
+    parser.add_argument('--agent0_save_path',       type=str,       default=f'log/minus_{2997}/version_{2}/ddpg0_final_model.pt')
+    parser.add_argument('--agent1_save_path',       type=str,       default=f'log/minus_{2997}/version_{2}/ddpg1_final_model.pt')
     
     # --- logger
     parser.add_argument('--log-path',               type=str,      default='log/')
